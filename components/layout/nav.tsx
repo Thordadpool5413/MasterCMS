@@ -15,6 +15,8 @@ const links = [
   { href: "/npi-lookup", label: "NPI Lookup" },
   { href: "/drug-spending", label: "Drug Spending" },
   { href: "/prescribers", label: "Prescribers" },
+  { href: "/competitor-intel", label: "Competitor Intel" },
+  { href: "/clinical-trials", label: "Clinical Trials" },
   { href: "/settings", label: "Settings" },
 ];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Building2, HeartPulse, TrendingUp, RefreshCw } from "lucide-react";
+import { LayoutDashboard, Building2, HeartPulse, TrendingUp, RefreshCw, Users, DollarSign, Info } from "lucide-react";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { StateSelect } from "@/components/shared/state-select";
 import { mcp } from "@/lib/api";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { StateDemographics } from "@/lib/cms-direct";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,79 @@ type HospitalResult = {
   total_records: number;
   interpretation_note: string;
 };
+
+// ─── Census demographics strip ────────────────────────────────────────────────
+
+function DemographicsStrip({ state }: { state: string }) {
+  const [data, setData] = useState<StateDemographics | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [noKey, setNoKey] = useState(false);
+
+  useEffect(() => {
+    if (!state) return;
+    setData(null);
+    setLoading(true);
+    setNoKey(false);
+    mcp("get_census_demographics", { state })
+      .then((d) => {
+        if (d === null) setNoKey(true);
+        else setData(d as StateDemographics);
+      })
+      .catch(() => setNoKey(true))
+      .finally(() => setLoading(false));
+  }, [state]);
+
+  if (!state) return null;
+
+  if (loading) return (
+    <div className="mb-6 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
+      <p className="text-xs text-[hsl(var(--muted-foreground))]">Loading demographics…</p>
+    </div>
+  );
+
+  if (noKey || !data) return (
+    <div className="mb-6 rounded-lg border border-dashed border-[hsl(var(--border))] px-4 py-3 flex items-center gap-2">
+      <Info className="h-3.5 w-3.5 text-[hsl(var(--muted-foreground))]" />
+      <p className="text-xs text-[hsl(var(--muted-foreground))]">
+        Add <code className="font-mono">CENSUS_API_KEY</code> to <code className="font-mono">.env.local</code> to show state demographics (free at census.gov/developers).
+      </p>
+    </div>
+  );
+
+  return (
+    <div className="mb-6 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+        {data.state_name} Demographics · 2022 ACS 5-Year
+      </p>
+      <div className="flex flex-wrap gap-6">
+        <div className="flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5 text-[hsl(var(--primary))]" />
+          <span className="text-xs text-[hsl(var(--muted-foreground))]">Population</span>
+          <span className="text-sm font-semibold">
+            {new Intl.NumberFormat("en-US", { notation: "compact" }).format(data.total_population)}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <HeartPulse className="h-3.5 w-3.5 text-[hsl(var(--primary))]" />
+          <span className="text-xs text-[hsl(var(--muted-foreground))]">Age 65+</span>
+          <span className="text-sm font-semibold">
+            {new Intl.NumberFormat("en-US", { notation: "compact" }).format(data.population_65_plus)}
+          </span>
+          <span className="text-xs text-[hsl(var(--muted-foreground))]">
+            ({data.pct_65_plus.toFixed(1)}%)
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <DollarSign className="h-3.5 w-3.5 text-[hsl(var(--primary))]" />
+          <span className="text-xs text-[hsl(var(--muted-foreground))]">Median Income</span>
+          <span className="text-sm font-semibold">
+            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(data.median_household_income)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
@@ -129,6 +203,9 @@ export default function NationalDashboardPage() {
       </div>
 
       {error && <ErrorBanner message={error} />}
+
+      {/* Demographics strip — only when a state is selected */}
+      <DemographicsStrip state={state} />
 
       {/* Stats */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

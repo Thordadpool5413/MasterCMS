@@ -9,6 +9,8 @@ import {
   DollarSign,
   Pill,
   Settings,
+  Building,
+  FlaskConical,
 } from "lucide-react";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -49,7 +51,7 @@ const extendedSections = [
   {
     href: "/drug-spending",
     title: "Drug Spending",
-    description: "Medicare Part D and Part B drug spending trends by brand name and year.",
+    description: "Medicare Part D and Part B drug spending trends — click any drug to see FDA adverse events and label data.",
     icon: DollarSign,
   },
   {
@@ -57,6 +59,18 @@ const extendedSections = [
     title: "Prescriber Data",
     description: "Medicare Part D prescribers ranked by drug, state, or specialty.",
     icon: Pill,
+  },
+  {
+    href: "/competitor-intel",
+    title: "Competitor Intelligence",
+    description: "IRS Form 990 financials for any nonprofit hospice, home health, or palliative care org. Revenue, expenses, margin.",
+    icon: Building,
+  },
+  {
+    href: "/clinical-trials",
+    title: "Clinical Trials",
+    description: "Active Medicare-relevant trials from ClinicalTrials.gov — identify hospitals with high-acuity patient populations.",
+    icon: FlaskConical,
   },
   {
     href: "/settings",

@@ -17,6 +17,7 @@ const ENV_DESCRIPTIONS: Record<string, string> = {
   OPENAI_API_KEY: "OpenAI API key from platform.openai.com",
   CMS_MEDICARE_MCP_URL: "URL of the remote CMS Medicare MCP server (e.g. https://mcp.olyport.com/cms-medicare/mcp)",
   LOCAL_MCP_URL: "URL of the local TypeScript MCP server (default: http://localhost:3001)",
+  CENSUS_API_KEY: "Free key from api.census.gov/data/key_signup.html — enables demographics on National Dashboard",
 };
 
 export default function SettingsPage() {
@@ -102,21 +103,65 @@ export default function SettingsPage() {
 
       <section className="mb-8">
         <h2 className="mb-4 text-base font-semibold">Data Sources</h2>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              CMS Public APIs
-              <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700">
-                Always available
-              </span>
-            </CardTitle>
-            <CardDescription>
-              All data pages (Hospice Market, Hospital Opportunity, Nursing Home, NPI Lookup, Drug Spending, Prescribers)
-              pull live data directly from CMS public APIs — no API key required.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                CMS Public APIs
+                <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700">
+                  Always available
+                </span>
+              </CardTitle>
+              <CardDescription>
+                Hospice Market, Hospital Opportunity, Nursing Home, NPI Lookup, Drug Spending, and Prescribers pull live data from CMS public APIs — no key required.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                ProPublica Nonprofit Explorer
+                <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700">
+                  Always available
+                </span>
+              </CardTitle>
+              <CardDescription>
+                Competitor Intelligence uses the ProPublica 990 API to pull IRS Form 990 filings for any nonprofit — no API key required.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                ClinicalTrials.gov &amp; OpenFDA
+                <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700">
+                  Always available
+                </span>
+              </CardTitle>
+              <CardDescription>
+                Clinical Trials search and FDA adverse events / drug labels are free public APIs — no key required.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Key className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                Census ACS Demographics
+                <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]">
+                  Requires free key
+                </span>
+              </CardTitle>
+              <CardDescription>
+                State-level population, 65+ count, and median income shown on the National Dashboard when a state is selected.
+                Add <code className="font-mono text-xs">CENSUS_API_KEY</code> to <code className="font-mono text-xs">.env.local</code> — free at api.census.gov/data/key_signup.html.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
       </section>
 
       <section>

@@ -398,3 +398,318 @@ export async function lookupNpi(params: {
     result_count: json.result_count ?? 0,
   };
 }
+
+// ─── ProPublica Nonprofit 990 Explorer ────────────────────────────────────────
+
+const PROPUBLICA_API = "https://projects.propublica.org/nonprofits/api/v2";
+
+export interface NonprofitOrg {
+  ein: string;
+  name: string;
+  city: string;
+  state: string;
+  ntee_code: string;
+  income_amount: number;
+  asset_amount: number;
+  form_990_count: number;
+  have_pdfs: boolean;
+}
+
+export interface NonprofitFiling {
+  tax_prd_yr: string;
+  formtype: string;
+  pdf_url: string;
+  totrevenue: number;
+  totfuncexpns: number;
+  totassetsend: number;
+  totliabend: number;
+  compnsatncurrofcr: number;
+  othrsalwages: number;
+  totprgmrevnue: number;
+  totcontribution: number;
+}
+
+export interface NonprofitDetail {
+  organization: NonprofitOrg & { num_employees?: number; address?: string; zipcode?: string };
+  filings: NonprofitFiling[];
+}
+
+export async function searchNonprofits(
+  query: string,
+  stateFilter?: string,
+): Promise<{ organizations: NonprofitOrg[]; total: number }> {
+  const params = new URLSearchParams({ q: query });
+  if (stateFilter) params.set("state[id]", stateFilter);
+
+  const res = await fetch(`${PROPUBLICA_API}/search.json?${params}`, {
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`ProPublica API error ${res.status}`);
+  const data = (await res.json()) as { total_results?: number; organizations?: NonprofitOrg[] };
+
+  return {
+    organizations: data.organizations ?? [],
+    total: data.total_results ?? 0,
+  };
+}
+
+export async function getNonprofitDetail(ein: string): Promise<NonprofitDetail> {
+  const clean = ein.replace(/-/g, "");
+  const res = await fetch(`${PROPUBLICA_API}/organizations/${clean}.json`, {
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`ProPublica API error ${res.status}`);
+  const data = (await res.json()) as {
+    organization?: Record<string, unknown>;
+    filings_with_data?: Record<string, unknown>[];
+  };
+
+  const org = data.organization ?? {};
+  const filings: NonprofitFiling[] = (data.filings_with_data ?? []).map((f) => ({
+    tax_prd_yr: String(f.tax_prd_yr ?? ""),
+    formtype: String(f.formtype ?? "990"),
+    pdf_url: String(f.pdf_url ?? ""),
+    totrevenue: num(f.totrevenue),
+    totfuncexpns: num(f.totfuncexpns),
+    totassetsend: num(f.totassetsend),
+    totliabend: num(f.totliabend),
+    compnsatncurrofcr: num(f.compnsatncurrofcr),
+    othrsalwages: num(f.othrsalwages),
+    totprgmrevnue: num(f.totprgmrevnue),
+    totcontribution: num(f.totcontribution),
+  }));
+
+  return {
+    organization: {
+      ein: String(org.ein ?? ""),
+      name: String(org.name ?? ""),
+      city: String(org.city ?? ""),
+      state: String(org.state ?? ""),
+      ntee_code: String(org.nteeCode ?? org.ntee_code ?? ""),
+      income_amount: num(org.income_amount ?? org.incomeAmt),
+      asset_amount: num(org.asset_amount ?? org.assetAmount),
+      form_990_count: Number(org.form990TotalAssets ?? 0),
+      have_pdfs: Boolean(org.have_pdfs),
+      num_employees: org.numEmployees != null ? Number(org.numEmployees) : undefined,
+      address: org.address ? String(org.address) : undefined,
+      zipcode: org.zipcode ? String(org.zipcode) : undefined,
+    },
+    filings,
+  };
+}
+
+// ─── ClinicalTrials.gov v2 ────────────────────────────────────────────────────
+
+export interface ClinicalTrial {
+  nct_id: string;
+  title: string;
+  status: string;
+  phase: string;
+  conditions: string[];
+  sponsor: string;
+  enrollment: number | null;
+  start_date: string;
+  locations: { facility: string; city: string; state: string }[];
+  url: string;
+}
+
+export async function searchClinicalTrials(
+  condition: string,
+  stateFilter?: string,
+  statusFilter?: string,
+  maxResults = 25,
+): Promise<{ trials: ClinicalTrial[]; total: number }> {
+  const params = new URLSearchParams({
+    format: "json",
+    pageSize: String(Math.min(maxResults, 50)),
+    "query.term": condition,
+  });
+  if (stateFilter) params.set("query.locn", stateFilter);
+  params.set(
+    "filter.overallStatus",
+    statusFilter ?? "RECRUITING,ACTIVE_NOT_RECRUITING,NOT_YET_RECRUITING",
+  );
+
+  const res = await fetch(`https://clinicaltrials.gov/api/v2/studies?${params}`, {
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`ClinicalTrials API error ${res.status}`);
+  const data = (await res.json()) as {
+    studies?: Record<string, unknown>[];
+    totalCount?: number;
+  };
+
+  const trials: ClinicalTrial[] = (data.studies ?? []).map((study) => {
+    const proto = (study.protocolSection ?? {}) as Record<string, Record<string, unknown>>;
+    const idMod = proto.identificationModule ?? {};
+    const statusMod = proto.statusModule ?? {};
+    const sponsorMod = proto.sponsorCollaboratorsModule ?? {};
+    const condMod = proto.conditionsModule ?? {};
+    const designMod = proto.designModule ?? {};
+    const locMod = proto.contactsLocationsModule ?? {};
+
+    const phases = (designMod.phases as string[] | undefined) ?? [];
+    const phase = phases.length
+      ? phases.map((p) => p.replace("PHASE", "Phase ").replace("_", " ")).join(", ")
+      : "N/A";
+
+    const locs = ((locMod.locations as Record<string, string>[] | undefined) ?? [])
+      .slice(0, 3)
+      .map((l) => ({
+        facility: String(l.facility ?? ""),
+        city: String(l.city ?? ""),
+        state: String(l.state ?? ""),
+      }));
+
+    const enrollInfo = designMod.enrollmentInfo as Record<string, unknown> | undefined;
+    const leadSponsor = sponsorMod.leadSponsor as Record<string, string> | undefined;
+    const startDate = (statusMod.startDateStruct as Record<string, string> | undefined)?.date ?? "";
+    const nctId = String(idMod.nctId ?? "");
+
+    return {
+      nct_id: nctId,
+      title: String(idMod.briefTitle ?? ""),
+      status: String(statusMod.overallStatus ?? "").replace(/_/g, " "),
+      phase,
+      conditions: (condMod.conditions as string[] | undefined) ?? [],
+      sponsor: String(leadSponsor?.name ?? ""),
+      enrollment: enrollInfo?.count != null ? Number(enrollInfo.count) : null,
+      start_date: startDate,
+      locations: locs,
+      url: `https://clinicaltrials.gov/study/${nctId}`,
+    };
+  });
+
+  return { trials, total: data.totalCount ?? 0 };
+}
+
+// ─── OpenFDA ──────────────────────────────────────────────────────────────────
+
+export interface AdverseEventReaction {
+  term: string;
+  count: number;
+}
+
+export interface DrugLabelSummary {
+  brand_name: string;
+  generic_name: string;
+  indications_and_usage: string;
+  warnings: string;
+  boxed_warning: string;
+}
+
+export async function getOpenFdaAdverseEvents(
+  drugName: string,
+  limit = 12,
+): Promise<{ reactions: AdverseEventReaction[]; total_reports: number }> {
+  const search = encodeURIComponent(
+    `patient.drug.medicinalproduct:"${drugName.toUpperCase()}"`,
+  );
+  const res = await fetch(
+    `https://api.fda.gov/drug/event.json?search=${search}&count=patient.reaction.reactionmeddrapt.exact&limit=${limit}`,
+    { signal: AbortSignal.timeout(10_000) },
+  );
+  if (res.status === 404) return { reactions: [], total_reports: 0 };
+  if (!res.ok) throw new Error(`OpenFDA error ${res.status}`);
+  const data = (await res.json()) as {
+    results?: { term: string; count: number }[];
+    meta?: { results?: { total?: number } };
+  };
+  return {
+    reactions: data.results ?? [],
+    total_reports: data.meta?.results?.total ?? 0,
+  };
+}
+
+export async function getOpenFdaDrugLabel(
+  drugName: string,
+): Promise<DrugLabelSummary | null> {
+  const search = encodeURIComponent(`openfda.brand_name:"${drugName}"`);
+  const res = await fetch(
+    `https://api.fda.gov/drug/label.json?search=${search}&limit=1`,
+    { signal: AbortSignal.timeout(10_000) },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) return null;
+  const data = (await res.json()) as { results?: Record<string, unknown>[] };
+  if (!data.results?.length) return null;
+  const r = data.results[0];
+  const fda = (r.openfda as Record<string, string[]> | undefined) ?? {};
+  const first = (arr: unknown): string =>
+    Array.isArray(arr) ? String(arr[0] ?? "").slice(0, 600) : "";
+  return {
+    brand_name: first(fda.brand_name) || drugName,
+    generic_name: first(fda.generic_name) || "",
+    indications_and_usage: first(r.indications_and_usage),
+    warnings: first(r.warnings),
+    boxed_warning: first(r.boxed_warning),
+  };
+}
+
+// ─── Census Bureau ACS Demographics ──────────────────────────────────────────
+
+const STATE_FIPS: Record<string, string> = {
+  AL: "01", AK: "02", AZ: "04", AR: "05", CA: "06", CO: "08", CT: "09",
+  DE: "10", DC: "11", FL: "12", GA: "13", HI: "15", ID: "16", IL: "17",
+  IN: "18", IA: "19", KS: "20", KY: "21", LA: "22", ME: "23", MD: "24",
+  MA: "25", MI: "26", MN: "27", MS: "28", MO: "29", MT: "30", NE: "31",
+  NV: "32", NH: "33", NJ: "34", NM: "35", NY: "36", NC: "37", ND: "38",
+  OH: "39", OK: "40", OR: "41", PA: "42", RI: "44", SC: "45", SD: "46",
+  TN: "47", TX: "48", UT: "49", VT: "50", VA: "51", WA: "53", WV: "54",
+  WI: "55", WY: "56",
+};
+
+export interface StateDemographics {
+  state: string;
+  state_name: string;
+  total_population: number;
+  population_65_plus: number;
+  pct_65_plus: number;
+  median_household_income: number;
+}
+
+export async function getCensusStateDemographics(
+  stateAbbr: string,
+): Promise<StateDemographics | null> {
+  const apiKey = process.env.CENSUS_API_KEY;
+  if (!apiKey) return null;
+  const fips = STATE_FIPS[stateAbbr.toUpperCase()];
+  if (!fips) return null;
+
+  const vars = [
+    "NAME", "B01003_001E",
+    "B01001_020E", "B01001_021E", "B01001_022E",
+    "B01001_023E", "B01001_024E", "B01001_025E",
+    "B01001_044E", "B01001_045E", "B01001_046E",
+    "B01001_047E", "B01001_048E", "B01001_049E",
+    "B19013_001E",
+  ].join(",");
+
+  const res = await fetch(
+    `https://api.census.gov/data/2022/acs/acs5?get=${vars}&for=state:${fips}&key=${apiKey}`,
+    { signal: AbortSignal.timeout(10_000) },
+  );
+  if (!res.ok) return null;
+  const rows = (await res.json()) as string[][];
+  if (rows.length < 2) return null;
+
+  const [header, row] = [rows[0], rows[1]];
+  const g = (v: string) => Number(row[header.indexOf(v)] ?? 0);
+
+  const totalPop = g("B01003_001E");
+  const pop65 = [
+    "B01001_020E", "B01001_021E", "B01001_022E",
+    "B01001_023E", "B01001_024E", "B01001_025E",
+    "B01001_044E", "B01001_045E", "B01001_046E",
+    "B01001_047E", "B01001_048E", "B01001_049E",
+  ].reduce((s, v) => s + g(v), 0);
+
+  return {
+    state: stateAbbr.toUpperCase(),
+    state_name: row[header.indexOf("NAME")],
+    total_population: totalPop,
+    population_65_plus: pop65,
+    pct_65_plus: totalPop > 0 ? parseFloat(((pop65 / totalPop) * 100).toFixed(1)) : 0,
+    median_household_income: g("B19013_001E"),
+  };
+}
