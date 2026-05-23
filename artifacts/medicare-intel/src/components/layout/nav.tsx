@@ -15,6 +15,7 @@ const links = [
   { href: "/competitor-intel", label: "Competitor Intel" },
   { href: "/clinical-trials", label: "Clinical Trials" },
   { href: "/settings", label: "Settings" },
+  { href: "/cache-management", label: "Cache" },
 ];
 
 export function Nav() {

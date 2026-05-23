@@ -16,6 +16,7 @@ import PrescribersPage from "@/pages/prescribers";
 import CompetitorIntelPage from "@/pages/competitor-intel";
 import ClinicalTrialsPage from "@/pages/clinical-trials";
 import SettingsPage from "@/pages/settings";
+import CacheManagementPage from "@/pages/cache-management";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/competitor-intel" component={CompetitorIntelPage} />
         <Route path="/clinical-trials" component={ClinicalTrialsPage} />
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/cache-management" component={CacheManagementPage} />
         <Route component={NotFound} />
       </Switch>
     </>
