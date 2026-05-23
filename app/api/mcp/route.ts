@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getHospiceMarketShare,
+  getHospiceProviderDetail,
   getHospitalOpportunity,
   getNursingHomeOpportunity,
   lookupNpi,
@@ -31,7 +32,15 @@ export async function POST(req: NextRequest) {
         result = await getHospiceMarketShare(
           args.state as string | undefined,
           (args.max_rows as number | undefined) ?? 200,
+          {
+            groupBy: (args.group_by as "city" | "state" | undefined) ?? undefined,
+            year: (args.year as string | undefined) ?? undefined,
+            enrich: args.enrich !== false,
+          },
         );
+        break;
+      case "hospice_provider_detail":
+        result = await getHospiceProviderDetail(args.ccn as string);
         break;
       case "hospital_hospice_opportunity":
         result = await getHospitalOpportunity(
@@ -74,7 +83,7 @@ export async function POST(req: NextRequest) {
         );
         break;
       case "get_nonprofit_detail":
-        result = await getNonprofitDetail(args.ein as string);
+        result = await getNonprofitDetail(args.ein as string | number);
         break;
 
       // ── ClinicalTrials.gov ──────────────────────────────────────────────────

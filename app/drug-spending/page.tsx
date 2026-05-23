@@ -273,7 +273,19 @@ export default function DrugSpendingPage() {
       {loading && <LoadingSpinner />}
       {error && <ErrorBanner message={error} />}
 
-      {result && !loading && (
+      {result && !loading && result.rows.length === 0 && (
+        <EmptyState
+          icon={DollarSign}
+          title="No matching drugs"
+          description={
+            drugName.trim()
+              ? `No Medicare ${spendingType === "part_d" ? "Part D" : "Part B"} drugs matched "${drugName.trim()}". Try a brand name (e.g., "Eliquis") or a generic name (e.g., "morphine sulfate").`
+              : "No spending data returned. Try switching between Part D and Part B."
+          }
+        />
+      )}
+
+      {result && !loading && result.rows.length > 0 && (
         <>
           <Alert className="mb-4">
             <AlertDescription className="text-xs">

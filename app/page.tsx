@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   DollarSign,
   Pill,
-  Settings,
   Building,
   FlaskConical,
 } from "lucide-react";
@@ -72,12 +71,7 @@ const extendedSections = [
     description: "Active Medicare-relevant trials from ClinicalTrials.gov — identify hospitals with high-acuity patient populations.",
     icon: FlaskConical,
   },
-  {
-    href: "/settings",
-    title: "Settings",
-    description: "Configure AI Chat backends: Claude (Anthropic), OpenAI, or local TypeScript MCP server.",
-    icon: Settings,
-  },
+  // /settings is admin-only — surfaced via direct URL, not the dashboard tile grid.
 ];
 
 function SectionCard({

@@ -17,7 +17,8 @@ const links = [
   { href: "/prescribers", label: "Prescribers" },
   { href: "/competitor-intel", label: "Competitor Intel" },
   { href: "/clinical-trials", label: "Clinical Trials" },
-  { href: "/settings", label: "Settings" },
+  // /settings is intentionally NOT in the user-facing nav. It exposes API-key /
+  // backend configuration details meant for admins only; reach it via direct URL.
 ];
 
 export function Nav() {

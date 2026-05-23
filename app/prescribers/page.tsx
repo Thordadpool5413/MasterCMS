@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Pill } from "lucide-react";
+import { Search, Pill, FileQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { ErrorBanner } from "@/components/shared/error-banner";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { StateSelect } from "@/components/shared/state-select";
 import { mcp } from "@/lib/api";
@@ -98,11 +99,23 @@ export default function PrescribersPage() {
       {loading && <LoadingSpinner />}
       {error && <ErrorBanner message={error} />}
 
-      {result && !loading && (
+      {result && !loading && result.rows.length === 0 && (
+        <EmptyState
+          icon={FileQuestion}
+          title="No matching prescribers"
+          description={
+            drugName || state || prescriberType
+              ? "No Medicare Part D prescribers matched these filters. Try broadening the search — drop a filter, or use a more general specialty (e.g., 'Internal Medicine')."
+              : "Choose at least a state or a drug name to search."
+          }
+        />
+      )}
+
+      {result && !loading && result.rows.length > 0 && (
         <>
           <Alert className="mb-4">
             <AlertDescription className="text-xs">
-              {result.total} prescribers • Medicare Part D by Provider dataset from CMS
+              Top {result.rows.length} of {result.total.toLocaleString()} prescribers by claim volume · Medicare Part D · Source: CMS
             </AlertDescription>
           </Alert>
 
