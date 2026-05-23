@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Medicare Market Intelligence"
+version = "1.0.0"
+id = "artifacts/medicare-intel"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22835
+
+[services.development]
+run = "pnpm --filter @workspace/medicare-intel run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/medicare-intel", "run", "build" ]
+publicDir = "artifacts/medicare-intel/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22835"
+BASE_PATH = "/"
