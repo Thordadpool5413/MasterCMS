@@ -103,6 +103,17 @@ export async function POST(req: NextRequest) {
         result = await getCensusStateDemographics(args.state as string);
         break;
 
+      // ── Diagnostics ─────────────────────────────────────────────────────────
+      case "debug_cms_columns": {
+        const uuid = args.uuid as string ?? "4e73f1b5-82cb-4682-8ad2-28493f0b6840";
+        const r = await fetch(`https://data.cms.gov/data-api/v1/dataset/${uuid}/data?size=1`, { signal: AbortSignal.timeout(15_000) });
+        if (!r.ok) { result = { error: `HTTP ${r.status}`, uuid }; break; }
+        const raw = await r.json();
+        const rows = Array.isArray(raw) ? raw : Array.isArray((raw as Record<string,unknown>).data) ? (raw as Record<string,unknown>).data : raw;
+        result = { uuid, response_type: Array.isArray(raw) ? "array" : typeof raw, first_row_keys: Array.isArray(rows) && rows.length > 0 ? Object.keys((rows as Record<string,unknown>[])[0]) : [], first_row: Array.isArray(rows) && rows.length > 0 ? (rows as Record<string,unknown>[])[0] : null };
+        break;
+      }
+
       // ── Cache stubs ─────────────────────────────────────────────────────────
       case "list_cached_national_datasets":
         result = { cached_datasets: [] };
