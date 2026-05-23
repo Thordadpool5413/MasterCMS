@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Medicare Master
 
-## Getting Started
+A unified Medicare market intelligence platform combining the best of three repos:
 
-First, run the development server:
+- **chatgptmcpmedicare** — Next.js 15 frontend with multi-page feature routing
+- **medicare-mcp** — TypeScript MCP server data endpoints (drug spending, prescribers, hospitals)
+- **medicare-market-intelligence** — National dashboard, Supabase integration, OpenAI support
+
+## Features
+
+| Page | Description |
+|------|-------------|
+| Home Dashboard | Full feature overview |
+| National Dashboard | Side-by-side hospital + hospice overview by state |
+| AI Chat | Claude / GPT-4o / Local MCP — switch backends inline |
+| Hospice Market Share | Ranked providers by market share, any state |
+| Hospital Opportunity | Scored by hospice referral potential |
+| Nursing Home Opportunity | SNF opportunity rankings by state/city |
+| NPI Provider Lookup | NPPES NPI registry search |
+| Drug Spending | Medicare Part D & Part B spending trends |
+| Prescriber Data | Part D prescribers by drug/state/specialty |
+| Settings | Backend status and configuration guide |
+
+## Quick start
 
 ```bash
+npm install
+cp .env.example .env.local
+# Edit .env.local — add at minimum ANTHROPIC_API_KEY
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## AI Chat backends
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The chat page has a backend selector in the input bar:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Backend | Env vars needed |
+|---------|----------------|
+| Claude (Anthropic) | `ANTHROPIC_API_KEY` |
+| GPT-4o (OpenAI) | `OPENAI_API_KEY` + `CMS_MEDICARE_MCP_URL` |
+| Local MCP Server | `LOCAL_MCP_URL` (run medicare-mcp locally) |
 
-## Learn More
+All data pages pull from CMS public APIs — no API key required.
 
-To learn more about Next.js, take a look at the following resources:
+## Local TypeScript MCP server
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+cd ~/medicare-mcp
+npm install && npm run build
+USE_HTTP=true npm run start   # starts on port 3001
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Add `LOCAL_MCP_URL=http://localhost:3001` to `.env.local`.
 
-## Deploy on Vercel
+## Data sources
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `data.cms.gov` — Medicare utilization, drug spending, prescribers
+- `data.cms.gov/provider-data` — Hospital quality, nursing homes
+- `npiregistry.cms.hhs.gov` — NPPES NPI registry
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+No PHI. No patient-level data. Compliant public data only.

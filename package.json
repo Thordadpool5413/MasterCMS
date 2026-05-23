@@ -1,20 +1,21 @@
 {
-  "name": "web",
-  "version": "0.1.0",
+  "name": "medicare-master",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "node server.js",
-    "postinstall": "next build",
     "lint": "eslint"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
+    "@supabase/supabase-js": "^2.106.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.16.0",
     "next": "^16.2.6",
+    "openai": "^4.104.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",

@@ -7,12 +7,15 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/", label: "Dashboard" },
+  { href: "/national-dashboard", label: "National" },
   { href: "/chat", label: "AI Chat" },
-  { href: "/hospice-market", label: "Hospice Market" },
+  { href: "/hospice-market", label: "Hospice" },
   { href: "/hospital-opportunity", label: "Hospitals" },
   { href: "/nursing-home", label: "Nursing Homes" },
   { href: "/npi-lookup", label: "NPI Lookup" },
-  { href: "/cache-management", label: "Cache" },
+  { href: "/drug-spending", label: "Drug Spending" },
+  { href: "/prescribers", label: "Prescribers" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function Nav() {
@@ -21,7 +24,7 @@ export function Nav() {
   return (
     <nav className="sticky top-0 z-50 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-[hsl(var(--primary))]">
+        <Link href="/" className="flex items-center gap-2 font-semibold text-[hsl(var(--primary))] shrink-0">
           <Activity className="h-5 w-5" />
           <span className="hidden sm:inline">CMS Intelligence</span>
         </Link>

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User } from "lucide-react";
+import { Send, Bot, User, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import type { BackendId } from "@/lib/backend-config";
 
 interface Message {
   role: "user" | "assistant";
@@ -15,19 +16,40 @@ const SUGGESTIONS = [
   "What's the hospice market share in Texas?",
   "Show me hospital opportunities in Miami, FL",
   "Top nursing homes in California by opportunity score",
+  "Top Medicare Part D drugs by spending in 2023",
   "Find hospice providers named Amedisys in Texas",
+  "Who are the top prescribers of Eliquis in Florida?",
+];
+
+const BACKENDS: { id: BackendId; label: string; model: string }[] = [
+  { id: "anthropic", label: "Claude (Anthropic)", model: "claude-sonnet-4-6" },
+  { id: "openai", label: "GPT-4o (OpenAI)", model: "gpt-4o" },
+  { id: "local-mcp", label: "Local MCP Server", model: "local" },
 ];
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [backend, setBackend] = useState<BackendId>("anthropic");
+  const [showBackendPicker, setShowBackendPicker] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowBackendPicker(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   async function sendMessage(text: string) {
     if (!text.trim() || loading) return;
@@ -47,6 +69,7 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          backend,
         }),
       });
 
@@ -102,6 +125,8 @@ export default function ChatPage() {
     }
   }
 
+  const activeBackend = BACKENDS.find((b) => b.id === backend) ?? BACKENDS[0];
+
   return (
     <div className="flex flex-col h-[calc(100vh-57px)]">
       {/* Messages */}
@@ -114,10 +139,10 @@ export default function ChatPage() {
               </div>
               <h2 className="text-xl font-semibold">Medicare Market Intelligence</h2>
               <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                Ask anything about hospice markets, hospital opportunities, or providers
+                Ask anything about hospice markets, hospital opportunities, drug spending, or providers
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 w-full max-w-xl">
+            <div className="grid gap-2 sm:grid-cols-2 w-full max-w-2xl">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
@@ -132,16 +157,11 @@ export default function ChatPage() {
         ) : (
           <div className="mx-auto max-w-3xl px-4 py-6 space-y-6">
             {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={cn("flex gap-3", msg.role === "user" && "flex-row-reverse")}
-              >
+              <div key={i} className={cn("flex gap-3", msg.role === "user" && "flex-row-reverse")}>
                 <div
                   className={cn(
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                    msg.role === "assistant"
-                      ? "bg-[hsl(var(--primary)/0.1)]"
-                      : "bg-[hsl(var(--secondary))]",
+                    msg.role === "assistant" ? "bg-[hsl(var(--primary)/0.1)]" : "bg-[hsl(var(--secondary))]",
                   )}
                 >
                   {msg.role === "assistant" ? (
@@ -181,7 +201,7 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about hospice markets, hospitals, nursing homes, or providers…"
+            placeholder="Ask about hospice markets, hospitals, nursing homes, drug spending, or providers…"
             rows={1}
             disabled={loading}
             className="flex-1 resize-none rounded-xl border border-[hsl(var(--input))] bg-transparent px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] disabled:opacity-50 max-h-40 overflow-y-auto"
@@ -196,9 +216,42 @@ export default function ChatPage() {
             <Send className="h-4 w-4" />
           </Button>
         </div>
-        <p className="text-center text-xs text-[hsl(var(--muted-foreground))] mt-2">
-          Powered by Claude · Live CMS public data
-        </p>
+
+        {/* Backend picker */}
+        <div className="mx-auto max-w-3xl mt-2 flex items-center justify-between">
+          <div className="relative" ref={pickerRef}>
+            <button
+              onClick={() => setShowBackendPicker((v) => !v)}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] transition-colors"
+            >
+              <span>{activeBackend.label}</span>
+              <ChevronDown className="h-3 w-3" />
+            </button>
+            {showBackendPicker && (
+              <div className="absolute bottom-full mb-1 left-0 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-lg p-1 min-w-52 z-50">
+                {BACKENDS.map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => { setBackend(b.id); setShowBackendPicker(false); }}
+                    className={cn(
+                      "w-full flex items-center justify-between rounded px-3 py-2 text-sm text-left hover:bg-[hsl(var(--accent))] transition-colors",
+                      backend === b.id && "bg-[hsl(var(--accent))] font-medium",
+                    )}
+                  >
+                    <span>{b.label}</span>
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">{b.model}</span>
+                  </button>
+                ))}
+                <div className="mt-1 px-3 py-1 text-xs text-[hsl(var(--muted-foreground))] border-t border-[hsl(var(--border))]">
+                  Configure in Settings → Backend
+                </div>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-[hsl(var(--muted-foreground))]">
+            Live CMS public data · No PHI
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,8 @@ import {
   getHospitalOpportunity,
   getNursingHomeOpportunity,
   lookupNpi,
+  getDrugSpending,
+  searchPrescribers,
 } from "@/lib/cms-direct";
 
 export async function POST(req: NextRequest) {
@@ -43,6 +45,23 @@ export async function POST(req: NextRequest) {
 
       case "lookup_npi":
         result = await lookupNpi(args as Parameters<typeof lookupNpi>[0]);
+        break;
+
+      case "drug_spending":
+        result = await getDrugSpending(
+          args.drug_name as string | undefined,
+          (args.spending_type as "part_d" | "part_b") ?? "part_d",
+          (args.max_rows as number | undefined) ?? 200,
+        );
+        break;
+
+      case "prescriber_search":
+        result = await searchPrescribers(
+          args.drug_name as string | undefined,
+          args.state as string | undefined,
+          args.prescriber_type as string | undefined,
+          (args.max_rows as number | undefined) ?? 200,
+        );
         break;
 
       case "list_cached_national_datasets":

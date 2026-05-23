@@ -237,6 +237,134 @@ export async function getNursingHomeOpportunity(
   };
 }
 
+// ─── Drug Spending ────────────────────────────────────────────────────────────
+
+export interface DrugSpendingRow {
+  brand_name: string;
+  generic_name: string;
+  manufacturer: string;
+  year_2019_spending?: number;
+  year_2020_spending?: number;
+  year_2021_spending?: number;
+  year_2022_spending?: number;
+  year_2023_spending?: number;
+  year_2019_claims?: number;
+  year_2020_claims?: number;
+  year_2021_claims?: number;
+  year_2022_claims?: number;
+  year_2023_claims?: number;
+  latest_spending: number;
+  latest_year: string;
+  [key: string]: unknown;
+}
+
+export async function getDrugSpending(
+  drugName?: string,
+  spendingType: "part_d" | "part_b" = "part_d",
+  maxRows = 100,
+): Promise<{ rows: DrugSpendingRow[]; total: number; spending_type: string }> {
+  const datasetMap: Record<string, string> = {
+    part_d: "7e0b4365-fd63-4a29-8f5e-e0ac9f66a81b",
+    part_b: "76a714ad-3a2c-43ac-b76d-9dadf8f7d890",
+  };
+  const datasetId = datasetMap[spendingType];
+  const params = new URLSearchParams({ size: String(Math.min(maxRows, 500)) });
+  if (drugName) params.set("filter[Brnd_Name]", drugName);
+  params.set("sort", "-Tot_Spndng_2023");
+
+  const res = await fetch(`${CMS_DATA_API}/dataset/${datasetId}/data?${params}`, {
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new Error(`CMS API error ${res.status}`);
+  const data = (await res.json()) as Record<string, unknown>[];
+
+  const rows: DrugSpendingRow[] = data.map((item) => {
+    const years = ["2019", "2020", "2021", "2022", "2023"];
+    let latestSpending = 0;
+    let latestYear = "N/A";
+    for (const y of years.slice().reverse()) {
+      const v = num(item[`Tot_Spndng_${y}`]);
+      if (v > 0) { latestSpending = v; latestYear = y; break; }
+    }
+    return {
+      brand_name: String(item.Brnd_Name ?? ""),
+      generic_name: String(item.Gnrc_Name ?? ""),
+      manufacturer: String(item.Mftr_Name ?? ""),
+      year_2019_spending: num(item.Tot_Spndng_2019),
+      year_2020_spending: num(item.Tot_Spndng_2020),
+      year_2021_spending: num(item.Tot_Spndng_2021),
+      year_2022_spending: num(item.Tot_Spndng_2022),
+      year_2023_spending: num(item.Tot_Spndng_2023),
+      year_2019_claims: num(item.Tot_Clms_2019),
+      year_2020_claims: num(item.Tot_Clms_2020),
+      year_2021_claims: num(item.Tot_Clms_2021),
+      year_2022_claims: num(item.Tot_Clms_2022),
+      year_2023_claims: num(item.Tot_Clms_2023),
+      latest_spending: latestSpending,
+      latest_year: latestYear,
+    };
+  });
+
+  return { rows, total: data.length, spending_type: spendingType };
+}
+
+// ─── Prescriber Data ──────────────────────────────────────────────────────────
+
+export interface PrescriberRow {
+  npi: string;
+  prescriber_name: string;
+  prescriber_type: string;
+  city: string;
+  state: string;
+  zip: string;
+  total_claims: number;
+  total_drug_cost: number;
+  total_beneficiaries: number;
+  brand_claims?: number;
+  generic_claims?: number;
+  [key: string]: unknown;
+}
+
+export async function searchPrescribers(
+  drugName?: string,
+  state?: string,
+  prescriberType?: string,
+  maxRows = 100,
+): Promise<{ rows: PrescriberRow[]; total: number }> {
+  const useProviderDataset = !drugName;
+  const datasetId = useProviderDataset
+    ? "14d8e8a9-7e9b-4370-a044-bf97c46b4b44"
+    : "9552739e-3d05-4c1b-8eff-ecabf391e2e5";
+
+  const params = new URLSearchParams({ size: String(Math.min(maxRows, 500)) });
+  if (drugName && !useProviderDataset) params.set("keyword", drugName);
+  if (state) params.set("filter[Prscrbr_State_Abrvtn]", state);
+  if (prescriberType) params.set("filter[Prscrbr_Type]", prescriberType);
+  params.set("sort", "-Tot_Clms");
+
+  const res = await fetch(`${CMS_DATA_API}/dataset/${datasetId}/data?${params}`, {
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new Error(`CMS API error ${res.status}`);
+  const data = (await res.json()) as Record<string, unknown>[];
+
+  const rows: PrescriberRow[] = data.map((item) => ({
+    npi: String(item.PRSCRBR_NPI ?? item.Prscrbr_NPI ?? ""),
+    prescriber_name: `${item.Prscrbr_Last_Org_Name ?? ""}, ${item.Prscrbr_First_Name ?? ""}`.trim().replace(/^,\s*/, ""),
+    prescriber_type: String(item.Prscrbr_Type ?? ""),
+    city: String(item.Prscrbr_City ?? ""),
+    state: String(item.Prscrbr_State_Abrvtn ?? ""),
+    zip: String(item.Prscrbr_zip5 ?? ""),
+    total_claims: num(item.Tot_Clms),
+    total_drug_cost: num(item.Tot_Drug_Cst),
+    total_beneficiaries: num(item.Tot_Benes),
+    brand_claims: num(item.Brnd_Tot_Clms),
+    generic_claims: num(item.Gnrc_Tot_Clms),
+  }));
+
+  return { rows, total: data.length };
+}
+
 // ─── NPI Lookup ───────────────────────────────────────────────────────────────
 
 export interface NpiResult {
