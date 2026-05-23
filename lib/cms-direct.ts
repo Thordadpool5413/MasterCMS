@@ -32,19 +32,17 @@ const HOSPICE_DRG_TERMS = [
 
 export interface HospiceRow {
   _provider_name: string;
+  _city: string;
+  _state: string;
+  _zip: string;
+  _payment: number;
+  _avg_age: number;
+  _risk_score: number;
   _market: string;
   _market_volume: number;
   _market_total_volume: number;
   _market_share_pct: number;
   _rank: number;
-  Rndrng_Prvdr_Org_Name?: string;
-  Rndrng_Prvdr_City?: string;
-  Rndrng_Prvdr_State_Abrvtn?: string;
-  Rndrng_Prvdr_Zip_Cd?: string;
-  Tot_Benes?: number;
-  Tot_Mdcr_Pymt_Amt?: number;
-  Bene_Avg_Age?: number;
-  Bene_Avg_Risk_Scre?: number;
   [key: string]: unknown;
 }
 
@@ -66,13 +64,24 @@ export async function getHospiceMarketShare(state?: string, maxRows = 200): Prom
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`CMS API error ${res.status}`);
-  const data = (await res.json()) as Record<string, unknown>[];
+  const raw = await res.json();
+  const data: Record<string, unknown>[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as Record<string, unknown>).data)
+      ? (raw as Record<string, unknown>).data as Record<string, unknown>[]
+      : [];
   if (!data.length) return { rows: [], provider_column_used: "", volume_column_used: "", market_column_used: "", total_volume: 0, market_totals: {}, interpretation_note: "No data found." };
 
   const sample = data[0];
-  const provCol = findCol(sample, ["Rndrng_Prvdr_Org_Name","ProviderName","Provider"]) ?? Object.keys(sample)[0];
-  const volCol = findCol(sample, ["Tot_Benes","TotBenes","Beneficiaries","Total_Benes"]) ?? findCol(sample, ["Tot"]) ?? Object.keys(sample)[2];
-  const mktCol = findCol(sample, ["Rndrng_Prvdr_City","City"]) ?? findCol(sample, ["County","HRR"]) ?? findCol(sample, ["Rndrng_Prvdr_State_Abrvtn","State"]) ?? "";
+  const provCol = findCol(sample, ["Rndrng_Prvdr_Org_Name","RndrngPrvdrOrgName","ProviderName","Provider","org_name","provider_name"]) ?? Object.keys(sample)[0];
+  const volCol  = findCol(sample, ["Tot_Benes","TotBenes","Beneficiaries","Total_Benes","tot_benes","total_benes","benes"]) ?? findCol(sample, ["Tot"]) ?? Object.keys(sample)[2];
+  const mktCol  = findCol(sample, ["Rndrng_Prvdr_City","RndrngPrvdrCity","City","city","provider_city"]) ?? findCol(sample, ["County","HRR"]) ?? findCol(sample, ["Rndrng_Prvdr_State_Abrvtn","State","state"]) ?? "";
+  const cityCol = findCol(sample, ["Rndrng_Prvdr_City","RndrngPrvdrCity","City","city","provider_city"]) ?? "";
+  const stateCol = findCol(sample, ["Rndrng_Prvdr_State_Abrvtn","RndrngPrvdrStateAbrvtn","State","state","provider_state"]) ?? "";
+  const zipCol  = findCol(sample, ["Rndrng_Prvdr_Zip_Cd","RndrngPrvdrZipCd","Zip","zip","zip_code","provider_zip"]) ?? "";
+  const payCol  = findCol(sample, ["Tot_Mdcr_Pymt_Amt","TotMdcrPymtAmt","MedicarePayment","total_payment","medicare_payment"]) ?? "";
+  const ageCol  = findCol(sample, ["Bene_Avg_Age","BeneAvgAge","avg_age","average_age"]) ?? "";
+  const riskCol = findCol(sample, ["Bene_Avg_Risk_Scre","BeneAvgRiskScre","risk_score","avg_risk_score"]) ?? "";
 
   const mktTotals: Record<string, number> = {};
   let totalVolume = 0;
@@ -90,6 +99,12 @@ export async function getHospiceMarketShare(state?: string, maxRows = 200): Prom
     return {
       ...row,
       _provider_name: String(row[provCol] ?? ""),
+      _city: cityCol ? String(row[cityCol] ?? "") : "",
+      _state: stateCol ? String(row[stateCol] ?? "") : "",
+      _zip: zipCol ? String(row[zipCol] ?? "") : "",
+      _payment: payCol ? num(row[payCol]) : 0,
+      _avg_age: ageCol ? num(row[ageCol]) : 0,
+      _risk_score: riskCol ? num(row[riskCol]) : 0,
       _market: mkt,
       _market_volume: vol,
       _market_total_volume: total,

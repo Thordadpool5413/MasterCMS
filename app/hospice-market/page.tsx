@@ -75,9 +75,6 @@ export default function HospiceMarketPage() {
     }
   }
 
-  const prov = result?.provider_column_used ?? "Rndrng_Prvdr_Org_Name";
-  const vol = result?.volume_column_used ?? "Tot_Benes";
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-6">
@@ -137,19 +134,19 @@ export default function HospiceMarketPage() {
                 {result.rows.map((row: HospiceRow, i) => (
                   <TableRow key={i}>
                     <TableCell className="text-[hsl(var(--muted-foreground))] text-xs">{row._rank}</TableCell>
-                    <TableCell className="font-medium max-w-[200px] truncate" title={String(row[prov] ?? "")}>
-                      {String(row[prov] ?? "—")}
+                    <TableCell className="font-medium max-w-[200px] truncate" title={row._provider_name}>
+                      {row._provider_name || "—"}
                     </TableCell>
-                    <TableCell>{String(row.Rndrng_Prvdr_City ?? row["City"] ?? "—")}</TableCell>
-                    <TableCell>{String(row.Rndrng_Prvdr_State_Abrvtn ?? row["State"] ?? "—")}</TableCell>
-                    <TableCell className="text-xs">{String(row.Rndrng_Prvdr_Zip_Cd ?? "—")}</TableCell>
+                    <TableCell>{row._city || "—"}</TableCell>
+                    <TableCell>{row._state || "—"}</TableCell>
+                    <TableCell className="text-xs">{row._zip || "—"}</TableCell>
                     <TableCell className="max-w-[120px] truncate text-xs" title={row._market}>{row._market}</TableCell>
                     <TableCell className="text-right">{formatNumber(row._market_volume)}</TableCell>
                     <TableCell className="text-right">{formatNumber(row._market_total_volume)}</TableCell>
                     <TableCell><ShareBar pct={row._market_share_pct} /></TableCell>
-                    <TableCell className="text-right">{currency(row.Tot_Mdcr_Pymt_Amt ?? row["Tot_Mdcr_Pymt_Amt"])}</TableCell>
-                    <TableCell className="text-right">{row.Bene_Avg_Age ? Number(row.Bene_Avg_Age).toFixed(1) : "—"}</TableCell>
-                    <TableCell className="text-right">{row.Bene_Avg_Risk_Scre ? Number(row.Bene_Avg_Risk_Scre).toFixed(2) : "—"}</TableCell>
+                    <TableCell className="text-right">{row._payment ? currency(row._payment) : "—"}</TableCell>
+                    <TableCell className="text-right">{row._avg_age ? row._avg_age.toFixed(1) : "—"}</TableCell>
+                    <TableCell className="text-right">{row._risk_score ? row._risk_score.toFixed(2) : "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
