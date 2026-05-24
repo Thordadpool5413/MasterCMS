@@ -12,9 +12,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { Badge, ResultRow, StatCard } from "@/components/shared/ResultCard";
 import { StatePickerModal } from "@/components/shared/StatePickerModal";
 import { useColors } from "@/hooks/useColors";
+import { useNetInfo } from "@/hooks/useNetInfo";
 import { mcp } from "@/lib/api";
 
 interface NpiProvider {
@@ -49,6 +51,7 @@ function getTaxonomy(p: NpiProvider) {
 export default function NpiScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isOnline } = useNetInfo();
   const isWeb = Platform.OS === "web";
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
@@ -59,14 +62,19 @@ export default function NpiScreen() {
   const [city, setCity] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<NpiResult | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  async function handleSearch() {
-    setLoading(true);
+  async function handleSearch(isRefresh = false) {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setExpanded(null);
+    }
     setError(null);
-    setExpanded(null);
     try {
       const args: Record<string, unknown> = { limit: 20 };
       if (firstName) args.first_name = firstName;
@@ -81,6 +89,7 @@ export default function NpiScreen() {
       setError(e?.message ?? "Request failed");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -139,6 +148,7 @@ export default function NpiScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!isOnline && <OfflineBanner />}
       <View style={[styles.filterPanel, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
         <View style={styles.inputRow}>
           <TextInput
@@ -181,11 +191,11 @@ export default function NpiScreen() {
             placeholder="Specialty (e.g. Hospice)"
             placeholderTextColor={colors.mutedForeground}
             returnKeyType="search"
-            onSubmitEditing={handleSearch}
+            onSubmitEditing={() => handleSearch()}
           />
           <Pressable
             style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
-            onPress={handleSearch}
+            onPress={() => handleSearch()}
             disabled={loading}
           >
             {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
@@ -227,6 +237,8 @@ export default function NpiScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 10, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={() => handleSearch(true)}
         />
       )}
     </View>

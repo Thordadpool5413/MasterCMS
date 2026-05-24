@@ -12,8 +12,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { StatCard } from "@/components/shared/ResultCard";
 import { useColors } from "@/hooks/useColors";
+import { useNetInfo } from "@/hooks/useNetInfo";
 import { mcp } from "@/lib/api";
 
 interface DrugRow {
@@ -51,17 +53,23 @@ function fmt(v: string | number | undefined) {
 export default function DrugSpendingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isOnline } = useNetInfo();
   const isWeb = Platform.OS === "web";
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   const [drugName, setDrugName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DrugResult | null>(null);
 
-  async function handleSearch() {
+  async function handleSearch(isRefresh = false) {
     if (!drugName.trim()) { setError("Enter a drug name to search"); return; }
-    setLoading(true);
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const data = await mcp("drug_spending_by_manufacturer", { drug_name: drugName, max_rows: 100 }) as DrugResult;
@@ -70,6 +78,7 @@ export default function DrugSpendingScreen() {
       setError(e?.message ?? "Request failed");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -104,6 +113,7 @@ export default function DrugSpendingScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!isOnline && <OfflineBanner />}
       <View style={[styles.toolbar, { borderBottomColor: colors.border }]}>
         <TextInput
           style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderRadius: colors.radius, flex: 1 }]}
@@ -112,12 +122,12 @@ export default function DrugSpendingScreen() {
           placeholder="Drug name (e.g. Eliquis, Humira)"
           placeholderTextColor={colors.mutedForeground}
           returnKeyType="search"
-          onSubmitEditing={handleSearch}
+          onSubmitEditing={() => handleSearch()}
           autoCapitalize="none"
         />
         <Pressable
           style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
-          onPress={handleSearch}
+          onPress={() => handleSearch()}
           disabled={loading}
         >
           {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
@@ -160,6 +170,8 @@ export default function DrugSpendingScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 10, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={() => handleSearch(true)}
         />
       )}
     </View>

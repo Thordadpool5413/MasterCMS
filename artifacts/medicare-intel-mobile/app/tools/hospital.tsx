@@ -12,9 +12,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { Badge, StatCard } from "@/components/shared/ResultCard";
 import { StatePickerModal } from "@/components/shared/StatePickerModal";
 import { useColors } from "@/hooks/useColors";
+import { useNetInfo } from "@/hooks/useNetInfo";
 import { mcp } from "@/lib/api";
 
 interface HospitalRow {
@@ -42,17 +44,23 @@ function ScorePill({ score, colors }: { score: number; colors: ReturnType<typeof
 export default function HospitalScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isOnline } = useNetInfo();
   const isWeb = Platform.OS === "web";
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ rows: HospitalRow[]; total_records: number } | null>(null);
 
-  async function handleSearch() {
-    setLoading(true);
+  async function handleSearch(isRefresh = false) {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const args: Record<string, unknown> = { max_rows: 200 };
@@ -64,6 +72,7 @@ export default function HospitalScreen() {
       setError(e?.message ?? "Request failed");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -94,6 +103,7 @@ export default function HospitalScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!isOnline && <OfflineBanner />}
       <View style={[styles.toolbar, { borderBottomColor: colors.border }]}>
         <StatePickerModal value={state} onChange={setState} />
         <TextInput
@@ -103,11 +113,11 @@ export default function HospitalScreen() {
           placeholder="City (optional)"
           placeholderTextColor={colors.mutedForeground}
           returnKeyType="search"
-          onSubmitEditing={handleSearch}
+          onSubmitEditing={() => handleSearch()}
         />
         <Pressable
           style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
-          onPress={handleSearch}
+          onPress={() => handleSearch()}
           disabled={loading}
         >
           {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
@@ -150,6 +160,8 @@ export default function HospitalScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 10, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={() => handleSearch(true)}
         />
       )}
     </View>

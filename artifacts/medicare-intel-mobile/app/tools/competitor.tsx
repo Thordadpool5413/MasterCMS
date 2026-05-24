@@ -13,8 +13,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { StatePickerModal } from "@/components/shared/StatePickerModal";
 import { useColors } from "@/hooks/useColors";
+import { useNetInfo } from "@/hooks/useNetInfo";
 import { mcp } from "@/lib/api";
 
 interface NonprofitOrg {
@@ -75,22 +77,28 @@ const SUGGESTIONS = ["VITAS", "Amedisys", "Enhabit", "Crossroads Hospice", "Agra
 export default function CompetitorScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isOnline } = useNetInfo();
   const isWeb = Platform.OS === "web";
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   const [query, setQuery] = useState("");
   const [state, setState] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<NonprofitResult | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  async function handleSearch(q?: string) {
+  async function handleSearch(q?: string, isRefresh = false) {
     const name = q ?? query;
     if (!name.trim()) { setError("Enter an organization name"); return; }
-    setLoading(true);
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setExpanded(null);
+    }
     setError(null);
-    setExpanded(null);
     try {
       const args: Record<string, unknown> = { name };
       if (state) args.state = state;
@@ -100,6 +108,7 @@ export default function CompetitorScreen() {
       setError(e?.message ?? "Request failed");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -167,6 +176,7 @@ export default function CompetitorScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!isOnline && <OfflineBanner />}
       <View style={[styles.toolbar, { borderBottomColor: colors.border }]}>
         <TextInput
           style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderRadius: colors.radius, flex: 1 }]}
@@ -228,6 +238,8 @@ export default function CompetitorScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 10, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={() => handleSearch(undefined, true)}
           ListHeaderComponent={
             <Text style={[styles.resultCount, { color: colors.mutedForeground }]}>
               {result.total_results} results

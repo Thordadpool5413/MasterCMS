@@ -11,9 +11,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { Badge, StatCard } from "@/components/shared/ResultCard";
 import { StatePickerModal } from "@/components/shared/StatePickerModal";
 import { useColors } from "@/hooks/useColors";
+import { useNetInfo } from "@/hooks/useNetInfo";
 import { mcp } from "@/lib/api";
 
 interface HospiceRow {
@@ -54,17 +56,23 @@ function ShareBar({ pct, colors }: { pct: number; colors: ReturnType<typeof useC
 export default function HospiceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isOnline } = useNetInfo();
   const isWeb = Platform.OS === "web";
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   const [state, setState] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<HospiceResult | null>(null);
 
-  async function handleSearch() {
+  async function handleSearch(isRefresh = false) {
     if (!state) { setError("Please select a state first"); return; }
-    setLoading(true);
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const data = await mcp("hospice_market_share_proxy", { state, max_rows: 200 }) as HospiceResult;
@@ -73,6 +81,7 @@ export default function HospiceScreen() {
       setError(e?.message ?? "Request failed");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -95,13 +104,14 @@ export default function HospiceScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!isOnline && <OfflineBanner />}
       <View style={[styles.toolbar, { borderBottomColor: colors.border }]}>
         <View style={{ flex: 1 }}>
           <StatePickerModal value={state} onChange={setState} />
         </View>
         <Pressable
           style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
-          onPress={handleSearch}
+          onPress={() => handleSearch()}
           disabled={loading}
         >
           {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
@@ -144,6 +154,8 @@ export default function HospiceScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={() => handleSearch(true)}
         />
       )}
     </View>
