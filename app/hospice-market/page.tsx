@@ -655,6 +655,7 @@ function HospiceMarketView() {
   const urlDir = (searchParams.get("dir") as SortDir | null) ?? "desc";
 
   const [stateInput, setStateInput] = useState(urlState);
+  const [cityInput, setCityInput] = useState(searchParams.get("city") ?? "");
   const [searchInput, setSearchInput] = useState(urlQ);
 
   const [loading, setLoading] = useState(false);
@@ -711,7 +712,13 @@ function HospiceMarketView() {
   const visibleRows = useMemo<HospiceRow[]>(() => {
     if (!result) return [];
     const q = urlQ.trim().toLowerCase();
+    const city = searchParams.get("city") ?? "";
     let rows: HospiceRow[] = result.rows;
+
+    if (city) {
+      rows = rows.filter((r) => r._city.toLowerCase() === city.toLowerCase());
+    }
+
     if (q) {
       rows = rows.filter((r) =>
         r._provider_name.toLowerCase().includes(q) ||
@@ -739,7 +746,7 @@ function HospiceMarketView() {
       return String(va).localeCompare(String(vb)) * dir;
     });
     return rows;
-  }, [result, urlQ, urlSort, urlDir]);
+  }, [result, urlQ, urlSort, urlDir, searchParams]);
 
   const onSort = (key: SortKey) => {
     if (urlSort === key) {
@@ -752,7 +759,7 @@ function HospiceMarketView() {
 
   const onSubmitSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    updateUrl({ state: stateInput, q: searchInput });
+    updateUrl({ state: stateInput, city: cityInput, q: searchInput });
   };
 
   const onExportCsv = () => {
@@ -774,6 +781,16 @@ function HospiceMarketView() {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-[hsl(var(--muted-foreground))]">State</label>
           <StateSelect value={stateInput} onChange={setStateInput} placeholder="All states" />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-[hsl(var(--muted-foreground))]">City</label>
+          <Input
+            value={cityInput}
+            onChange={(e) => setCityInput(e.target.value)}
+            placeholder="Filter by city (optional)"
+            className="w-40"
+          />
         </div>
 
         <div className="flex flex-col gap-1">
