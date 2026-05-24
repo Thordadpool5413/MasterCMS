@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -11,9 +12,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Badge, StatCard } from "@/components/shared/ResultCard";
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
+import { StatCard } from "@/components/shared/ResultCard";
 import { StatePickerModal } from "@/components/shared/StatePickerModal";
 import { useColors } from "@/hooks/useColors";
+import { useNetInfo } from "@/hooks/useNetInfo";
 import { mcp } from "@/lib/api";
 
 interface HospiceRow {
@@ -54,26 +57,24 @@ function ShareBar({ pct, colors }: { pct: number; colors: ReturnType<typeof useC
 export default function HospiceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isOnline } = useNetInfo();
   const isWeb = Platform.OS === "web";
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   const [state, setState] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<HospiceResult | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [queryParams, setQueryParams] = useState<{ state: string } | null>(null);
 
-  async function handleSearch() {
-    if (!state) { setError("Please select a state first"); return; }
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await mcp("hospice_market_share_proxy", { state, max_rows: 200 }) as HospiceResult;
-      setResult(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Request failed");
-    } finally {
-      setLoading(false);
-    }
+  const { data: result, isLoading, isRefetching, error, refetch } = useQuery<HospiceResult>({
+    queryKey: ["hospice", queryParams],
+    queryFn: () => mcp("hospice_market_share_proxy", { state: queryParams!.state, max_rows: 200 }) as Promise<HospiceResult>,
+    enabled: queryParams !== null,
+  });
+
+  function handleSearch() {
+    if (!state) { setValidationError("Please select a state first"); return; }
+    setValidationError(null);
+    setQueryParams({ state });
   }
 
   const renderItem = ({ item, index }: { item: HospiceRow; index: number }) => (
@@ -93,8 +94,11 @@ export default function HospiceScreen() {
     </View>
   );
 
+  const displayError = validationError ?? (error instanceof Error ? error.message : error ? "Request failed" : null);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!isOnline && <OfflineBanner />}
       <View style={[styles.toolbar, { borderBottomColor: colors.border }]}>
         <View style={{ flex: 1 }}>
           <StatePickerModal value={state} onChange={setState} />
@@ -102,19 +106,19 @@ export default function HospiceScreen() {
         <Pressable
           style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
           onPress={handleSearch}
-          disabled={loading}
+          disabled={isLoading}
         >
-          {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
+          {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
         </Pressable>
       </View>
 
-      {error && (
+      {displayError && (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "40" }]}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.destructive }]}>{displayError}</Text>
         </View>
       )}
 
-      {result && !loading && (
+      {result && !isLoading && (
         <View style={[styles.statsRow]}>
           <StatCard label="Providers" value={fmt(result.rows.length)} />
           <StatCard label="Total Benes" value={fmt(result.total_volume)} />
@@ -122,14 +126,14 @@ export default function HospiceScreen() {
         </View>
       )}
 
-      {loading && (
+      {isLoading && (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Fetching hospice data…</Text>
         </View>
       )}
 
-      {!loading && !result && !error && (
+      {!isLoading && !result && !displayError && (
         <View style={styles.centered}>
           <Feather name="map-pin" size={32} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Select a state</Text>
@@ -137,13 +141,15 @@ export default function HospiceScreen() {
         </View>
       )}
 
-      {!loading && result && (
+      {!isLoading && result && (
         <FlatList
           data={result.rows}
           keyExtractor={(_, i) => String(i)}
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
+          refreshing={isRefetching}
+          onRefresh={refetch}
         />
       )}
     </View>

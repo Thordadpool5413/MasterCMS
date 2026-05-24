@@ -1,4 +1,5 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -13,9 +14,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { Badge } from "@/components/shared/ResultCard";
 import { StatePickerModal } from "@/components/shared/StatePickerModal";
 import { useColors } from "@/hooks/useColors";
+import { useNetInfo } from "@/hooks/useNetInfo";
 import { mcp } from "@/lib/api";
 
 interface ClinicalTrial {
@@ -35,6 +38,12 @@ interface TrialsResult {
   total_count: number;
 }
 
+interface TrialsQueryParams {
+  condition: string;
+  status: string;
+  state: string;
+}
+
 const STATUS_OPTIONS = [
   { label: "Active", value: "RECRUITING,ACTIVE_NOT_RECRUITING,NOT_YET_RECRUITING" },
   { label: "Recruiting", value: "RECRUITING" },
@@ -52,31 +61,32 @@ function statusVariant(status: string): "success" | "warning" | "default" {
 export default function ClinicalTrialsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isOnline } = useNetInfo();
   const isWeb = Platform.OS === "web";
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   const [condition, setCondition] = useState("");
   const [statusFilter, setStatusFilter] = useState(STATUS_OPTIONS[0].value);
   const [state, setState] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<TrialsResult | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [queryParams, setQueryParams] = useState<TrialsQueryParams | null>(null);
 
-  async function handleSearch(cond?: string) {
-    const c = cond ?? condition;
-    if (!c.trim()) { setError("Enter a condition to search"); return; }
-    setLoading(true);
-    setError(null);
-    try {
-      const args: Record<string, unknown> = { condition: c, status: statusFilter, max_results: 20 };
-      if (state) args.state = state;
-      const data = await mcp("search_clinical_trials", args) as TrialsResult;
-      setResult(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Request failed");
-    } finally {
-      setLoading(false);
-    }
+  const { data: result, isLoading, isRefetching, error, refetch } = useQuery<TrialsResult>({
+    queryKey: ["clinical-trials", queryParams],
+    queryFn: () => {
+      const args: Record<string, unknown> = { condition: queryParams!.condition, status: queryParams!.status, max_results: 20 };
+      if (queryParams!.state) args.state = queryParams!.state;
+      return mcp("search_clinical_trials", args) as Promise<TrialsResult>;
+    },
+    enabled: queryParams !== null,
+  });
+
+  function handleSearch(presetCondition?: string) {
+    const c = presetCondition ?? condition;
+    if (!c.trim()) { setValidationError("Enter a condition to search"); return; }
+    setValidationError(null);
+    if (presetCondition) setCondition(presetCondition);
+    setQueryParams({ condition: c, status: statusFilter, state });
   }
 
   const renderItem = ({ item }: { item: ClinicalTrial }) => {
@@ -130,8 +140,11 @@ export default function ClinicalTrialsScreen() {
     );
   };
 
+  const displayError = validationError ?? (error instanceof Error ? error.message : error ? "Request failed" : null);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!isOnline && <OfflineBanner />}
       <View style={[styles.filterPanel, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
         <View style={styles.inputRow}>
           <TextInput
@@ -146,9 +159,9 @@ export default function ClinicalTrialsScreen() {
           <Pressable
             style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
             onPress={() => handleSearch()}
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
+            {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
           </Pressable>
         </View>
         <View style={styles.statusRow}>
@@ -170,13 +183,13 @@ export default function ClinicalTrialsScreen() {
         </View>
       </View>
 
-      {error && (
+      {displayError && (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "40" }]}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.destructive }]}>{displayError}</Text>
         </View>
       )}
 
-      {!loading && !result && !error && (
+      {!isLoading && !result && !displayError && (
         <>
           <View style={styles.centered}>
             <Ionicons name="flask-outline" size={32} color={colors.mutedForeground} />
@@ -188,7 +201,7 @@ export default function ClinicalTrialsScreen() {
               <Pressable
                 key={c}
                 style={({ pressed }) => [styles.chip, { backgroundColor: colors.muted, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
-                onPress={() => { setCondition(c); handleSearch(c); }}
+                onPress={() => handleSearch(c)}
               >
                 <Text style={[styles.chipText, { color: colors.foreground }]}>{c}</Text>
               </Pressable>
@@ -197,20 +210,22 @@ export default function ClinicalTrialsScreen() {
         </>
       )}
 
-      {loading && (
+      {isLoading && (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Searching trials…</Text>
         </View>
       )}
 
-      {!loading && result && (
+      {!isLoading && result && (
         <FlatList
           data={result.trials}
           keyExtractor={(item) => item.nct_id}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 10, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
+          refreshing={isRefetching}
+          onRefresh={refetch}
           ListHeaderComponent={
             <Text style={[styles.resultCount, { color: colors.mutedForeground }]}>
               {result.total_count} total · showing {result.trials.length}

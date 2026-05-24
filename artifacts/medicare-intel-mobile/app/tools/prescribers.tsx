@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -12,9 +13,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { StatCard } from "@/components/shared/ResultCard";
 import { StatePickerModal } from "@/components/shared/StatePickerModal";
 import { useColors } from "@/hooks/useColors";
+import { useNetInfo } from "@/hooks/useNetInfo";
 import { mcp } from "@/lib/api";
 
 interface PrescriberRow {
@@ -35,6 +38,12 @@ interface PrescriberResult {
   total_records: number;
 }
 
+interface PrescriberQueryParams {
+  drugName: string;
+  state: string;
+  specialty: string;
+}
+
 function fmt(v: string | number | undefined) {
   const n = Number(v ?? 0);
   return isNaN(n) ? "—" : n.toLocaleString("en-US");
@@ -51,31 +60,31 @@ function currency(v: string | number | undefined) {
 export default function PrescribersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isOnline } = useNetInfo();
   const isWeb = Platform.OS === "web";
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   const [drugName, setDrugName] = useState("");
   const [state, setState] = useState("");
   const [specialty, setSpecialty] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<PrescriberResult | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [queryParams, setQueryParams] = useState<PrescriberQueryParams | null>(null);
 
-  async function handleSearch() {
-    if (!drugName.trim()) { setError("Enter a drug name"); return; }
-    setLoading(true);
-    setError(null);
-    try {
-      const args: Record<string, unknown> = { drug_name: drugName, max_rows: 100 };
-      if (state) args.state = state;
-      if (specialty) args.specialty = specialty;
-      const data = await mcp("prescribers_by_drug", args) as PrescriberResult;
-      setResult(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Request failed");
-    } finally {
-      setLoading(false);
-    }
+  const { data: result, isLoading, isRefetching, error, refetch } = useQuery<PrescriberResult>({
+    queryKey: ["prescribers", queryParams],
+    queryFn: () => {
+      const args: Record<string, unknown> = { drug_name: queryParams!.drugName, max_rows: 100 };
+      if (queryParams!.state) args.state = queryParams!.state;
+      if (queryParams!.specialty) args.specialty = queryParams!.specialty;
+      return mcp("prescribers_by_drug", args) as Promise<PrescriberResult>;
+    },
+    enabled: queryParams !== null,
+  });
+
+  function handleSearch() {
+    if (!drugName.trim()) { setValidationError("Enter a drug name"); return; }
+    setValidationError(null);
+    setQueryParams({ drugName, state, specialty });
   }
 
   const renderItem = ({ item }: { item: PrescriberRow }) => (
@@ -110,8 +119,11 @@ export default function PrescribersScreen() {
     </View>
   );
 
+  const displayError = validationError ?? (error instanceof Error ? error.message : error ? "Request failed" : null);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!isOnline && <OfflineBanner />}
       <View style={[styles.filterPanel, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
         <View style={styles.inputRow}>
           <TextInput
@@ -137,34 +149,34 @@ export default function PrescribersScreen() {
           <Pressable
             style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
             onPress={handleSearch}
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
+            {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
           </Pressable>
         </View>
       </View>
 
-      {error && (
+      {displayError && (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "40" }]}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.destructive }]}>{displayError}</Text>
         </View>
       )}
 
-      {result && !loading && (
+      {result && !isLoading && (
         <View style={styles.statsRow}>
           <StatCard label="Results" value={result.rows.length} />
           <StatCard label="Total Records" value={fmt(result.total_records)} />
         </View>
       )}
 
-      {loading && (
+      {isLoading && (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Fetching prescriber data…</Text>
         </View>
       )}
 
-      {!loading && !result && !error && (
+      {!isLoading && !result && !displayError && (
         <View style={styles.centered}>
           <Feather name="user-check" size={32} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Search prescribers</Text>
@@ -172,13 +184,15 @@ export default function PrescribersScreen() {
         </View>
       )}
 
-      {!loading && result && (
+      {!isLoading && result && (
         <FlatList
           data={result.rows}
           keyExtractor={(_, i) => String(i)}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 10, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
+          refreshing={isRefetching}
+          onRefresh={refetch}
         />
       )}
     </View>

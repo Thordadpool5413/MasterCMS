@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -13,8 +14,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { StatePickerModal } from "@/components/shared/StatePickerModal";
 import { useColors } from "@/hooks/useColors";
+import { useNetInfo } from "@/hooks/useNetInfo";
 import { mcp } from "@/lib/api";
 
 interface NonprofitOrg {
@@ -38,6 +41,11 @@ interface NonprofitFiling {
 interface NonprofitResult {
   organizations: NonprofitOrg[];
   total_results: number;
+}
+
+interface CompetitorQueryParams {
+  name: string;
+  state: string;
 }
 
 function currency(v: number) {
@@ -75,32 +83,33 @@ const SUGGESTIONS = ["VITAS", "Amedisys", "Enhabit", "Crossroads Hospice", "Agra
 export default function CompetitorScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isOnline } = useNetInfo();
   const isWeb = Platform.OS === "web";
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   const [query, setQuery] = useState("");
   const [state, setState] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<NonprofitResult | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [queryParams, setQueryParams] = useState<CompetitorQueryParams | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  async function handleSearch(q?: string) {
-    const name = q ?? query;
-    if (!name.trim()) { setError("Enter an organization name"); return; }
-    setLoading(true);
-    setError(null);
+  const { data: result, isLoading, isRefetching, error, refetch } = useQuery<NonprofitResult>({
+    queryKey: ["competitor", queryParams],
+    queryFn: () => {
+      const args: Record<string, unknown> = { name: queryParams!.name };
+      if (queryParams!.state) args.state = queryParams!.state;
+      return mcp("search_nonprofits", args) as Promise<NonprofitResult>;
+    },
+    enabled: queryParams !== null,
+  });
+
+  function handleSearch(suggestedName?: string) {
+    const name = suggestedName ?? query;
+    if (!name.trim()) { setValidationError("Enter an organization name"); return; }
+    setValidationError(null);
     setExpanded(null);
-    try {
-      const args: Record<string, unknown> = { name };
-      if (state) args.state = state;
-      const data = await mcp("search_nonprofits", args) as NonprofitResult;
-      setResult(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Request failed");
-    } finally {
-      setLoading(false);
-    }
+    if (suggestedName) setQuery(suggestedName);
+    setQueryParams({ name, state });
   }
 
   const renderItem = ({ item }: { item: NonprofitOrg }) => {
@@ -165,8 +174,11 @@ export default function CompetitorScreen() {
     );
   };
 
+  const displayError = validationError ?? (error instanceof Error ? error.message : error ? "Request failed" : null);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!isOnline && <OfflineBanner />}
       <View style={[styles.toolbar, { borderBottomColor: colors.border }]}>
         <TextInput
           style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderRadius: colors.radius, flex: 1 }]}
@@ -181,19 +193,19 @@ export default function CompetitorScreen() {
         <Pressable
           style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
           onPress={() => handleSearch()}
-          disabled={loading}
+          disabled={isLoading}
         >
-          {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
+          {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
         </Pressable>
       </View>
 
-      {error && (
+      {displayError && (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "40" }]}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.destructive }]}>{displayError}</Text>
         </View>
       )}
 
-      {!loading && !result && !error && (
+      {!isLoading && !result && !displayError && (
         <>
           <View style={styles.centered}>
             <Feather name="bar-chart-2" size={32} color={colors.mutedForeground} />
@@ -205,7 +217,7 @@ export default function CompetitorScreen() {
               <Pressable
                 key={s}
                 style={({ pressed }) => [styles.chip, { backgroundColor: colors.muted, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
-                onPress={() => { setQuery(s); handleSearch(s); }}
+                onPress={() => handleSearch(s)}
               >
                 <Text style={[styles.chipText, { color: colors.foreground }]}>{s}</Text>
               </Pressable>
@@ -214,20 +226,22 @@ export default function CompetitorScreen() {
         </>
       )}
 
-      {loading && (
+      {isLoading && (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Searching 990 filings…</Text>
         </View>
       )}
 
-      {!loading && result && (
+      {!isLoading && result && (
         <FlatList
           data={result.organizations}
           keyExtractor={(item) => item.ein}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 10, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
+          refreshing={isRefetching}
+          onRefresh={refetch}
           ListHeaderComponent={
             <Text style={[styles.resultCount, { color: colors.mutedForeground }]}>
               {result.total_results} results
