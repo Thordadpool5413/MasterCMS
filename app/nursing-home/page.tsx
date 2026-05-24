@@ -117,7 +117,7 @@ export default function NursingHomePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {result.rows.map((row, i) => {
+                {result.rows.map((row: NursingHomeRow, i) => {
                   const isExpanded = expanded === String(row["provider_name"]);
                   return (
                     <Fragment key={i}>
@@ -125,7 +125,7 @@ export default function NursingHomePage() {
                         className="cursor-pointer hover:bg-[hsl(var(--muted))]/40"
                         onClick={() => setExpanded(isExpanded ? null : String(row["provider_name"]))}
                       >
-                        <TableCell className="font-medium max-w-[160px] truncate" title={row["provider_name"]}>{row["provider_name"] ?? "—"}</TableCell>
+                        <TableCell className="font-medium max-w-[160px] truncate" title={row["provider_name"] as string}>{row["provider_name"] ?? "—"}</TableCell>
                         <TableCell className="text-xs max-w-[140px] truncate" title={row["provider_address"] as string}>{row["provider_address"] ?? "—"}</TableCell>
                         <TableCell>{row["citytown"] ?? "—"}</TableCell>
                         <TableCell>{row["state"] ?? "—"}</TableCell>
