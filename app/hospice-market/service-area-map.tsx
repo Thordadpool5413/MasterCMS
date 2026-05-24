@@ -47,23 +47,23 @@ const MapContent = dynamic(
         return (
           <MapContainer
             bounds={bounds}
-            scrollWheelZoom={false}
             className="h-96 w-full rounded-lg border border-[hsl(var(--border))]"
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; OpenStreetMap contributors'
             />
             {markers.map((m) => (
               <CircleMarker
                 key={m.zip}
                 center={m.coords}
-                radius={4}
-                fillColor="hsl(var(--primary))"
-                color="hsl(var(--primary))"
-                weight={1}
-                opacity={0.7}
-                fillOpacity={0.6}
+                pathOptions={{
+                  radius: 4,
+                  fillColor: "hsl(var(--primary))",
+                  color: "hsl(var(--primary))",
+                  weight: 1,
+                  opacity: 0.7,
+                  fillOpacity: 0.6,
+                }}
               >
                 <Popup>{m.zip}</Popup>
               </CircleMarker>
