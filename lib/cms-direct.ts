@@ -1265,7 +1265,7 @@ export async function searchClinicalTrials(
     };
   });
 
-  return { trials, total: data.totalCount ?? 0 };
+  return { trials, total: trials.length };
 }
 
 // ─── OpenFDA ──────────────────────────────────────────────────────────────────

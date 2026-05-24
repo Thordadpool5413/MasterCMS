@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState, useEffect } from "react";
 import {
   Search, Building, ChevronDown, ChevronUp, ExternalLink, FileText, TrendingUp, TrendingDown,
 } from "lucide-react";
@@ -95,7 +95,10 @@ function DetailPanel({ ein }: { ein: string }) {
       const res = (await mcp("get_nonprofit_detail", { ein })) as NonprofitDetail;
       setData(res);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load filing data");
+      const msg = e instanceof Error ? e.message : "Failed to load filing data";
+      if (!msg.includes("404") && !msg.includes("not found")) {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
       setLoaded(true);
@@ -103,11 +106,11 @@ function DetailPanel({ ein }: { ein: string }) {
   }
 
   // Auto-load on mount
-  useState(() => { load(); });
+  useEffect(() => { load(); }, [loaded]);
 
   if (loading) return <div className="py-6 px-4"><LoadingSpinner label="Loading 990 filings…" /></div>;
   if (error) return <div className="py-4 px-4"><ErrorBanner message={error} /></div>;
-  if (!data) return null;
+  if (!data) return <div className="py-4 px-4"><p className="text-sm text-[hsl(var(--muted-foreground))]">No structured filing data available for this organization.</p></div>;
 
   const org = data.organization;
   const filings = data.filings.sort((a, b) => b.tax_prd_yr.localeCompare(a.tax_prd_yr));
@@ -208,13 +211,13 @@ export default function CompetitorIntelPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<{ organizations: NonprofitOrg[]; total: number } | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   async function handleSearch(q = query) {
     if (!q.trim()) return;
     setLoading(true);
     setError(null);
-    setExpanded(null);
+    setExpanded(new Set());
     try {
       const data = (await mcp("search_nonprofits", {
         query: q.trim(),
@@ -229,7 +232,12 @@ export default function CompetitorIntelPage() {
   }
 
   function toggleExpand(ein: string) {
-    setExpanded((prev) => (prev === ein ? null : ein));
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(ein)) next.delete(ein);
+      else next.add(ein);
+      return next;
+    });
   }
 
   return (
@@ -312,14 +320,13 @@ export default function CompetitorIntelPage() {
                 </TableHeader>
                 <TableBody>
                   {results.organizations.map((org) => (
-                    <>
+                    <Fragment key={org.ein}>
                       <TableRow
-                        key={org.ein}
                         className="cursor-pointer hover:bg-[hsl(var(--accent))] transition-colors"
                         onClick={() => toggleExpand(org.ein)}
                       >
                         <TableCell>
-                          {expanded === org.ein ? (
+                          {expanded.has(org.ein) ? (
                             <ChevronUp className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
                           ) : (
                             <ChevronDown className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
@@ -356,14 +363,14 @@ export default function CompetitorIntelPage() {
                           )}
                         </TableCell>
                       </TableRow>
-                      {expanded === org.ein && (
+                      {expanded.has(org.ein) && (
                         <tr key={`${org.ein}-detail`}>
                           <td colSpan={8} className="p-0">
                             <DetailPanel ein={org.ein} />
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </TableBody>
               </Table>

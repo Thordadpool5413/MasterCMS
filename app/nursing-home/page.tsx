@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ export default function NursingHomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ rows: NursingHomeRow[]; total_records: number; interpretation_note: string } | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -84,7 +85,7 @@ export default function NursingHomePage() {
               { label: "Records", value: formatNumber(result.rows.length) },
               { label: "Total Matched", value: formatNumber(result.total_records) },
               { label: "Top Score", value: formatNumber(result.rows[0]?._snf_opportunity_score ?? 0) },
-              { label: "Total Beds", value: formatNumber(result.rows.reduce((s, r) => s + (Number(r["Number of Certified Beds"]) || 0), 0)) },
+              { label: "Total Beds", value: formatNumber(result.rows.reduce((s, r) => s + (Number(r["number_of_certified_beds"]) || 0), 0)) },
             ].map((s) => (
               <div key={s.label} className="rounded-lg border border-[hsl(var(--border))] p-3">
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">{s.label}</p>
@@ -116,26 +117,90 @@ export default function NursingHomePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {result.rows.map((row, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="font-medium max-w-[160px] truncate" title={row["Provider Name"]}>{row["Provider Name"] ?? "—"}</TableCell>
-                    <TableCell className="text-xs max-w-[140px] truncate" title={row["Provider Address"] as string}>{row["Provider Address"] ?? "—"}</TableCell>
-                    <TableCell>{row["City/Town"] ?? "—"}</TableCell>
-                    <TableCell>{row.State ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{row["ZIP Code"] ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{row["Phone Number"] ?? "—"}</TableCell>
-                    <TableCell className="text-xs max-w-[120px] truncate">{row["Ownership Type"] ?? "—"}</TableCell>
-                    <TableCell className="text-right">{formatNumber(Number(row["Number of Certified Beds"]))}</TableCell>
-                    <TableCell className="text-right">{formatNumber(Number(row["Number of Residents in Certified Beds"]))}</TableCell>
-                    <TableCell><Stars rating={row["Overall Rating"]} /></TableCell>
-                    <TableCell><Stars rating={row["Health Inspection Rating"]} /></TableCell>
-                    <TableCell><Stars rating={row["Staffing Rating"]} /></TableCell>
-                    <TableCell><Stars rating={row["RN Staffing Rating"]} /></TableCell>
-                    <TableCell><Stars rating={row["QM Rating"]} /></TableCell>
-                    <TableCell className="text-right text-xs">{row._quality_pressure_component.toFixed(2)}</TableCell>
-                    <TableCell><ScoreBadge score={row._snf_opportunity_score} /></TableCell>
-                  </TableRow>
-                ))}
+                {result.rows.map((row, i) => {
+                  const isExpanded = expanded === String(row["provider_name"]);
+                  return (
+                    <Fragment key={i}>
+                      <TableRow
+                        className="cursor-pointer hover:bg-[hsl(var(--muted))]/40"
+                        onClick={() => setExpanded(isExpanded ? null : String(row["provider_name"]))}
+                      >
+                        <TableCell className="font-medium max-w-[160px] truncate" title={row["provider_name"]}>{row["provider_name"] ?? "—"}</TableCell>
+                        <TableCell className="text-xs max-w-[140px] truncate" title={row["provider_address"] as string}>{row["provider_address"] ?? "—"}</TableCell>
+                        <TableCell>{row["citytown"] ?? "—"}</TableCell>
+                        <TableCell>{row["state"] ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{row["zip_code"] ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{row["telephone_number"] ?? "—"}</TableCell>
+                        <TableCell className="text-xs max-w-[120px] truncate">{row["ownership_type"] ?? "—"}</TableCell>
+                        <TableCell className="text-right">{formatNumber(Number(row["number_of_certified_beds"]))}</TableCell>
+                        <TableCell className="text-right">{formatNumber(Number(row["average_number_of_residents_per_day"]))}</TableCell>
+                        <TableCell><Stars rating={row["overall_rating"]} /></TableCell>
+                        <TableCell><Stars rating={row["health_inspection_rating"]} /></TableCell>
+                        <TableCell><Stars rating={row["staffing_rating"]} /></TableCell>
+                        <TableCell><Stars rating={row["reported_rn_staffing_hours_per_resident_per_day"]} /></TableCell>
+                        <TableCell><Stars rating={row["qm_rating"]} /></TableCell>
+                        <TableCell className="text-right text-xs">{row._quality_pressure_component.toFixed(2)}</TableCell>
+                        <TableCell><ScoreBadge score={row._snf_opportunity_score} /></TableCell>
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow>
+                          <TableCell colSpan={16} className="bg-[hsl(var(--muted)/0.3)] p-4">
+                            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">CCN</p>
+                                <p className="text-sm font-medium">{row["cms_certification_number_ccn"] || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">County</p>
+                                <p className="text-sm font-medium">{row["countyparish"] || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Chain Name</p>
+                                <p className="text-sm font-medium">{row["chain_name"] || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Legal Business Name</p>
+                                <p className="text-sm font-medium">{row["legal_business_name"] || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Provider Type</p>
+                                <p className="text-sm font-medium">{row["provider_type"] || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Certification Date</p>
+                                <p className="text-sm font-medium">{row["date_first_approved_to_provide_medicare_and_medicaid_services"] || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Registered RN Staffing Hours/Resident/Day</p>
+                                <p className="text-sm font-medium">{row["reported_rn_staffing_hours_per_resident_per_day"] || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">LPN Staffing Hours/Resident/Day</p>
+                                <p className="text-sm font-medium">{row["reported_lpn_staffing_hours_per_resident_per_day"] || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Nurse Aide Staffing Hours/Resident/Day</p>
+                                <p className="text-sm font-medium">{row["reported_nurse_aide_staffing_hours_per_resident_per_day"] || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Nursing Staff Turnover</p>
+                                <p className="text-sm font-medium">{row["total_nursing_staff_turnover"] || "—"}%</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Number of Fines</p>
+                                <p className="text-sm font-medium">{row["number_of_fines"] || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Total Fines</p>
+                                <p className="text-sm font-medium">${row["total_amount_of_fines_in_dollars"] || "0"}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

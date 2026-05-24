@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Pill, FileQuestion } from "lucide-react";
+import { Fragment, useState } from "react";
+import { Search, Pill, FileQuestion, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
@@ -38,6 +38,61 @@ function fmt(v: number) {
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(v);
 }
 
+function PrescriberDetail({ row, onClose }: { row: PrescriberRow; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/40" onClick={onClose}>
+      <div
+        className="h-full w-full max-w-2xl overflow-y-auto bg-[hsl(var(--background))] p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Prescriber detail"
+      >
+        <div className="mb-6 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-[hsl(var(--muted-foreground))]">Prescriber</p>
+            <h2 className="text-xl font-semibold">{row.prescriber_name || "—"}</h2>
+            <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">NPI: {row.npi}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-md border border-[hsl(var(--border))] p-3">
+              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Specialty</dt>
+              <dd className="mt-0.5 text-sm font-medium">{row.prescriber_type || "—"}</dd>
+            </div>
+            <div className="rounded-md border border-[hsl(var(--border))] p-3">
+              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Location</dt>
+              <dd className="mt-0.5 text-sm font-medium">{[row.city, row.state, row.zip].filter(Boolean).join(", ") || "—"}</dd>
+            </div>
+            <div className="rounded-md border border-[hsl(var(--border))] p-3">
+              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Total Claims</dt>
+              <dd className="mt-0.5 text-sm font-mono font-medium">{fmt(row.total_claims)}</dd>
+            </div>
+            <div className="rounded-md border border-[hsl(var(--border))] p-3">
+              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Total Drug Cost</dt>
+              <dd className="mt-0.5 text-sm font-mono font-medium">{dollars(row.total_drug_cost)}</dd>
+            </div>
+            <div className="rounded-md border border-[hsl(var(--border))] p-3">
+              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Total Beneficiaries</dt>
+              <dd className="mt-0.5 text-sm font-mono font-medium">{fmt(row.total_beneficiaries)}</dd>
+            </div>
+            <div className="rounded-md border border-[hsl(var(--border))] p-3">
+              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Brand/Generic Mix</dt>
+              <dd className="mt-0.5 text-sm font-medium">
+                {row.brand_claims ? `${fmt(row.brand_claims)} / ${fmt(row.generic_claims ?? 0)}` : "—"}
+              </dd>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PrescribersPage() {
   const [drugName, setDrugName] = useState("");
   const [state, setState] = useState("");
@@ -45,6 +100,7 @@ export default function PrescribersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PrescriberResult | null>(null);
+  const [selectedPrescriber, setSelectedPrescriber] = useState<PrescriberRow | null>(null);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -136,7 +192,11 @@ export default function PrescribersPage() {
               </TableHeader>
               <TableBody>
                 {result.rows.map((row, i) => (
-                  <TableRow key={i}>
+                  <TableRow
+                    key={i}
+                    className="cursor-pointer hover:bg-[hsl(var(--muted))]/40"
+                    onClick={() => setSelectedPrescriber(row)}
+                  >
                     <TableCell className="text-[hsl(var(--muted-foreground))]">{i + 1}</TableCell>
                     <TableCell className="font-medium text-sm">{row.prescriber_name || "—"}</TableCell>
                     <TableCell className="text-xs text-[hsl(var(--muted-foreground))]">{row.prescriber_type || "—"}</TableCell>
@@ -162,6 +222,8 @@ export default function PrescribersPage() {
           <p className="text-sm text-[hsl(var(--muted-foreground))]">Enter filters above and click Search to view prescriber data</p>
         </div>
       )}
+
+      {selectedPrescriber && <PrescriberDetail row={selectedPrescriber} onClose={() => setSelectedPrescriber(null)} />}
     </div>
   );
 }

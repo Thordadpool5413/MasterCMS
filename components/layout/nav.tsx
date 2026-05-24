@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Activity } from "lucide-react";
@@ -23,6 +24,11 @@ const links = [
 
 export function Nav() {
   const pathname = usePathname();
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm">
@@ -38,7 +44,7 @@ export function Nav() {
               href={link.href}
               className={cn(
                 "whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-[hsl(var(--accent))]",
-                pathname === link.href
+                hydrated && pathname === link.href
                   ? "bg-[hsl(var(--accent))] font-medium text-[hsl(var(--foreground))]"
                   : "text-[hsl(var(--muted-foreground))]",
               )}

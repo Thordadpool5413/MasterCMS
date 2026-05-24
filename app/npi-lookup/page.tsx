@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,9 +144,8 @@ export default function NpiLookupPage() {
                   const tax = getPrimaryTax(p);
                   const isExpanded = expanded === p.number;
                   return (
-                    <>
+                    <Fragment key={p.number ?? i}>
                       <TableRow
-                        key={p.number ?? i}
                         className="cursor-pointer"
                         onClick={() => setExpanded(isExpanded ? null : (p.number ?? null))}
                       >
@@ -209,7 +208,7 @@ export default function NpiLookupPage() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </TableBody>

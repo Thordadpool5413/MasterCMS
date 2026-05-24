@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StateSelect } from "@/components/shared/state-select";
@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { mcp } from "@/lib/api";
 import { formatNumber } from "@/lib/utils";
-import type { HospitalRow } from "@/lib/cms-direct";
+import type { HospitalRow, HospiceRow } from "@/lib/cms-direct";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 function currency(v: unknown) {
@@ -25,12 +25,121 @@ function ScoreBadge({ score }: { score: number }) {
   return <Badge variant={variant}>{formatNumber(score)}</Badge>;
 }
 
+function HospitalDetail({ row, onClose }: { row: HospitalRow; onClose: () => void }) {
+  const [hospices, setHospices] = useState<HospiceRow[]>([]);
+  const [loadingHospices, setLoadingHospices] = useState(true);
+
+  useEffect(() => {
+    if (!row.Rndrng_Prvdr_State_Abrvtn) {
+      setLoadingHospices(false);
+      return;
+    }
+    (async () => {
+      try {
+        const data = (await mcp("hospice_market_share_proxy", {
+          state: row.Rndrng_Prvdr_State_Abrvtn,
+          max_rows: 100,
+        })) as { rows: HospiceRow[] };
+        setHospices(data.rows);
+      } catch {
+        setHospices([]);
+      } finally {
+        setLoadingHospices(false);
+      }
+    })();
+  }, [row.Rndrng_Prvdr_State_Abrvtn]);
+
+  const details: { label: string; value: React.ReactNode }[] = [
+    { label: "Hospital Name", value: row.Rndrng_Prvdr_Org_Name || "—" },
+    { label: "CCN", value: row.Rndrng_Prvdr_CCN || "—" },
+    { label: "Address", value: [row.Rndrng_Prvdr_City, row.Rndrng_Prvdr_State_Abrvtn, row.Rndrng_Prvdr_Zip_Cd].filter(Boolean).join(", ") || "—" },
+    { label: "DRG Code", value: row.DRG_Cd || "—" },
+    { label: "DRG Description", value: row.DRG_Desc || "—" },
+    { label: "Total Discharges", value: formatNumber(Number(row.Tot_Dschrgs)) },
+    { label: "Avg Submitted Charge", value: currency(row.Avg_Submtd_Cvrd_Chrg) },
+    { label: "Avg Total Payment", value: currency(row.Avg_Tot_Pymt_Amt) },
+    { label: "Avg Medicare Payment", value: currency(row.Avg_Mdcr_Pymt_Amt) },
+    { label: "Hospice Match", value: row._matched_hospice_terms.length > 0 ? row._matched_hospice_terms.join(", ") : "None" },
+    { label: "Opportunity Score", value: <ScoreBadge score={row._opportunity_score} /> },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/40" onClick={onClose}>
+      <div
+        className="h-full w-full max-w-2xl overflow-y-auto bg-[hsl(var(--background))] p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Hospital detail"
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-[hsl(var(--muted-foreground))]">Hospital</p>
+            <h2 className="text-xl font-semibold">{row.Rndrng_Prvdr_Org_Name || "—"}</h2>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <h3 className="mb-3 text-sm font-semibold">Hospital Details</h3>
+            <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {details.map((d) => (
+                <div key={d.label} className="rounded-md border border-[hsl(var(--border))] p-3">
+                  <dt className="text-xs text-[hsl(var(--muted-foreground))]">{d.label}</dt>
+                  <dd className="mt-0.5 text-sm font-medium">{d.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          {row.Rndrng_Prvdr_State_Abrvtn && (
+            <div>
+              <h3 className="mb-3 text-sm font-semibold">Related Hospice Providers in {row.Rndrng_Prvdr_State_Abrvtn}</h3>
+              {loadingHospices ? (
+                <LoadingSpinner label="Loading hospice providers…" />
+              ) : hospices.length > 0 ? (
+                <div className="rounded-lg border border-[hsl(var(--border))] overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Hospice Provider</TableHead>
+                        <TableHead>City</TableHead>
+                        <TableHead className="text-right">CAHPS Stars</TableHead>
+                        <TableHead className="text-right">Market Share</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {hospices.slice(0, 10).map((h) => (
+                        <TableRow key={h._provider_id}>
+                          <TableCell className="font-medium max-w-[180px] truncate">{h._provider_name}</TableCell>
+                          <TableCell>{h._city}</TableCell>
+                          <TableCell className="text-right">{h.star_rating ? `${h.star_rating}/5` : "—"}</TableCell>
+                          <TableCell className="text-right">{h._market_share_pct.toFixed(1)}%</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">No hospice providers found in this state.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HospitalOpportunityPage() {
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ rows: HospitalRow[]; total_records: number; interpretation_note: string } | null>(null);
+  const [selectedHospital, setSelectedHospital] = useState<HospitalRow | null>(null);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -107,7 +216,11 @@ export default function HospitalOpportunityPage() {
               </TableHeader>
               <TableBody>
                 {result.rows.map((row, i) => (
-                  <TableRow key={i}>
+                  <TableRow
+                    key={i}
+                    className="cursor-pointer hover:bg-[hsl(var(--muted))]/40"
+                    onClick={() => setSelectedHospital(row)}
+                  >
                     <TableCell className="font-medium max-w-[180px] truncate" title={row.Rndrng_Prvdr_Org_Name}>{row.Rndrng_Prvdr_Org_Name ?? "—"}</TableCell>
                     <TableCell>{row.Rndrng_Prvdr_City ?? "—"}</TableCell>
                     <TableCell>{row.Rndrng_Prvdr_State_Abrvtn ?? "—"}</TableCell>
@@ -138,6 +251,8 @@ export default function HospitalOpportunityPage() {
           </Alert>
         </>
       )}
+
+      {selectedHospital && <HospitalDetail row={selectedHospital} onClose={() => setSelectedHospital(null)} />}
     </div>
   );
 }

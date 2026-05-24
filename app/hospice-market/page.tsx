@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense, lazy } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Download, X, ArrowUp, ArrowDown, ArrowUpDown, FileQuestion, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,8 @@ function fmtPct(n: number | null | undefined, digits = 1) {
   if (n == null || isNaN(n)) return "—";
   return `${n.toFixed(digits)}%`;
 }
+
+const ServiceAreaMap = lazy(() => import("./service-area-map"));
 
 function ShareBar({ pct }: { pct: number }) {
   const width = Math.min(Math.max(pct, 0), 100);
@@ -599,15 +601,18 @@ function ProviderDetail({ row, onClose }: { row: HospiceRow; onClose: () => void
           <TabsContent value="area">
             {loadingDetail ? <LoadingSpinner label="Loading service area…" /> : (
               detail?.service_area_zips && detail.service_area_zips.length > 0 ? (
-                <div>
-                  <p className="mb-2 text-sm font-medium">Service area — {formatNumber(detail.service_area_zips.length)} ZIPs</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {detail.service_area_zips.slice(0, 200).map((z) => (
-                      <Badge key={z} variant="secondary">{z}</Badge>
-                    ))}
-                    {detail.service_area_zips.length > 200 && (
-                      <span className="text-xs text-[hsl(var(--muted-foreground))]">+ {detail.service_area_zips.length - 200} more</span>
-                    )}
+                <div className="space-y-4">
+                  <ServiceAreaMap zips={detail.service_area_zips} />
+                  <div>
+                    <p className="mb-2 text-sm font-medium">Service area — {formatNumber(detail.service_area_zips.length)} ZIPs</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {detail.service_area_zips.slice(0, 200).map((z) => (
+                        <Badge key={z} variant="secondary">{z}</Badge>
+                      ))}
+                      {detail.service_area_zips.length > 200 && (
+                        <span className="text-xs text-[hsl(var(--muted-foreground))]">+ {detail.service_area_zips.length - 200} more</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : <p className="text-sm text-[hsl(var(--muted-foreground))]">No service area ZIPs reported.</p>
