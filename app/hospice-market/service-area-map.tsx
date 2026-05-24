@@ -1,27 +1,9 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
-
-function approximateZipLocation(zip: string): [number, number] {
-  const z = parseInt(zip, 10);
-  if (isNaN(z)) return [39.8283, -98.5795];
-
-  const firstDigit = Math.floor(z / 10000);
-  const secondDigit = Math.floor((z % 10000) / 1000);
-
-  const latByFirst = [46, 40, 37, 35, 35, 35, 35, 37, 40, 21];
-  const lngByFirst = [-93, -95, -94, -92, -87, -82, -78, -75, -71, -156];
-
-  let lat = latByFirst[firstDigit] || 39;
-  let lng = lngByFirst[firstDigit] || -98;
-
-  const latVariance = Math.sin(secondDigit) * 3;
-  const lngVariance = Math.cos(secondDigit) * 4;
-
-  return [lat + latVariance, lng + lngVariance];
-}
+import { getZipCodeLocations } from "@/lib/zip-geocoding";
 
 const MapContent = dynamic(
   () => import("react-leaflet").then(m => {
@@ -32,10 +14,23 @@ const MapContent = dynamic(
 
     return {
       default: ({ zips }: { zips: string[] }) => {
-        const markers = zips.slice(0, 500).map((z) => ({
-          zip: z,
-          coords: approximateZipLocation(z),
-        }));
+        const [markers, setMarkers] = useState<Array<{ zip: string; coords: [number, number] }>>([]);
+        const [loading, setLoading] = useState(true);
+
+        useEffect(() => {
+          (async () => {
+            try {
+              const results = await getZipCodeLocations(zips.slice(0, 500));
+              setMarkers(results);
+            } catch {
+              setMarkers([]);
+            } finally {
+              setLoading(false);
+            }
+          })();
+        }, [zips]);
+
+        if (loading) return <div className="h-96 flex items-center justify-center">Loading map...</div>;
 
         const bounds = markers.length > 0
           ? [
@@ -46,7 +41,7 @@ const MapContent = dynamic(
 
         return (
           <MapContainer
-            bounds={bounds}
+            bounds={bounds as any}
             className="h-96 w-full rounded-lg border border-[hsl(var(--border))]"
           >
             <TileLayer
