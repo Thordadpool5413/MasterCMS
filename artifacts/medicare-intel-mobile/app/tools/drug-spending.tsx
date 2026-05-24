@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -58,28 +59,19 @@ export default function DrugSpendingScreen() {
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   const [drugName, setDrugName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<DrugResult | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [queryParams, setQueryParams] = useState<{ drugName: string } | null>(null);
 
-  async function handleSearch(isRefresh = false) {
-    if (!drugName.trim()) { setError("Enter a drug name to search"); return; }
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
-    try {
-      const data = await mcp("drug_spending_by_manufacturer", { drug_name: drugName, max_rows: 100 }) as DrugResult;
-      setResult(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Request failed");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  const { data: result, isLoading, isRefetching, error, refetch } = useQuery<DrugResult>({
+    queryKey: ["drug-spending", queryParams],
+    queryFn: () => mcp("drug_spending_by_manufacturer", { drug_name: queryParams!.drugName, max_rows: 100 }) as Promise<DrugResult>,
+    enabled: queryParams !== null,
+  });
+
+  function handleSearch() {
+    if (!drugName.trim()) { setValidationError("Enter a drug name to search"); return; }
+    setValidationError(null);
+    setQueryParams({ drugName });
   }
 
   const totalSpend = result?.rows.reduce((acc, r) => acc + parseFloat(String(r.Tot_Spndng ?? "0").replace(/,/g, "")), 0) ?? 0;
@@ -111,6 +103,8 @@ export default function DrugSpendingScreen() {
     </View>
   );
 
+  const displayError = validationError ?? (error instanceof Error ? error.message : error ? "Request failed" : null);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {!isOnline && <OfflineBanner />}
@@ -122,25 +116,25 @@ export default function DrugSpendingScreen() {
           placeholder="Drug name (e.g. Eliquis, Humira)"
           placeholderTextColor={colors.mutedForeground}
           returnKeyType="search"
-          onSubmitEditing={() => handleSearch()}
+          onSubmitEditing={handleSearch}
           autoCapitalize="none"
         />
         <Pressable
           style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
-          onPress={() => handleSearch()}
-          disabled={loading}
+          onPress={handleSearch}
+          disabled={isLoading}
         >
-          {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
+          {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
         </Pressable>
       </View>
 
-      {error && (
+      {displayError && (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "40" }]}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.destructive }]}>{displayError}</Text>
         </View>
       )}
 
-      {result && !loading && (
+      {result && !isLoading && (
         <View style={styles.statsRow}>
           <StatCard label="Records" value={result.rows.length} />
           <StatCard label="Total Spend" value={currency(totalSpend)} />
@@ -148,14 +142,14 @@ export default function DrugSpendingScreen() {
         </View>
       )}
 
-      {loading && (
+      {isLoading && (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Fetching drug spending…</Text>
         </View>
       )}
 
-      {!loading && !result && !error && (
+      {!isLoading && !result && !displayError && (
         <View style={styles.centered}>
           <Feather name="dollar-sign" size={32} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Search drug spending</Text>
@@ -163,15 +157,15 @@ export default function DrugSpendingScreen() {
         </View>
       )}
 
-      {!loading && result && (
+      {!isLoading && result && (
         <FlatList
           data={result.rows}
           keyExtractor={(_, i) => String(i)}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 10, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
-          refreshing={refreshing}
-          onRefresh={() => handleSearch(true)}
+          refreshing={isRefetching}
+          onRefresh={refetch}
         />
       )}
     </View>

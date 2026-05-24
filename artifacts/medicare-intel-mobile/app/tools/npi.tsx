@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -35,6 +36,15 @@ interface NpiResult {
   rows: NpiProvider[];
 }
 
+interface NpiQueryParams {
+  firstName: string;
+  lastName: string;
+  orgName: string;
+  state: string;
+  city: string;
+  specialty: string;
+}
+
 function getName(p: NpiProvider) {
   if (p.basic?.organization_name) return p.basic.organization_name;
   return [p.basic?.first_name, p.basic?.last_name].filter(Boolean).join(" ") || "—";
@@ -61,36 +71,27 @@ export default function NpiScreen() {
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [specialty, setSpecialty] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<NpiResult | null>(null);
+  const [queryParams, setQueryParams] = useState<NpiQueryParams | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  async function handleSearch(isRefresh = false) {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-      setExpanded(null);
-    }
-    setError(null);
-    try {
+  const { data: result, isLoading, isRefetching, error, refetch } = useQuery<NpiResult>({
+    queryKey: ["npi", queryParams],
+    queryFn: () => {
       const args: Record<string, unknown> = { limit: 20 };
-      if (firstName) args.first_name = firstName;
-      if (lastName) args.last_name = lastName;
-      if (orgName) args.organization_name = orgName;
-      if (state) args.state = state;
-      if (city) args.city = city;
-      if (specialty) args.taxonomy_description = specialty;
-      const data = await mcp("lookup_npi", args) as NpiResult;
-      setResult(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Request failed");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      if (queryParams!.firstName) args.first_name = queryParams!.firstName;
+      if (queryParams!.lastName) args.last_name = queryParams!.lastName;
+      if (queryParams!.orgName) args.organization_name = queryParams!.orgName;
+      if (queryParams!.state) args.state = queryParams!.state;
+      if (queryParams!.city) args.city = queryParams!.city;
+      if (queryParams!.specialty) args.taxonomy_description = queryParams!.specialty;
+      return mcp("lookup_npi", args) as Promise<NpiResult>;
+    },
+    enabled: queryParams !== null,
+  });
+
+  function handleSearch() {
+    setExpanded(null);
+    setQueryParams({ firstName, lastName, orgName, state, city, specialty });
   }
 
   const renderItem = ({ item }: { item: NpiProvider }) => {
@@ -146,6 +147,8 @@ export default function NpiScreen() {
     );
   };
 
+  const errorMsg = error instanceof Error ? error.message : error ? "Request failed" : null;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {!isOnline && <OfflineBanner />}
@@ -191,38 +194,38 @@ export default function NpiScreen() {
             placeholder="Specialty (e.g. Hospice)"
             placeholderTextColor={colors.mutedForeground}
             returnKeyType="search"
-            onSubmitEditing={() => handleSearch()}
+            onSubmitEditing={handleSearch}
           />
           <Pressable
             style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
-            onPress={() => handleSearch()}
-            disabled={loading}
+            onPress={handleSearch}
+            disabled={isLoading}
           >
-            {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
+            {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
           </Pressable>
         </View>
       </View>
 
-      {error && (
+      {errorMsg && (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "40" }]}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.destructive }]}>{errorMsg}</Text>
         </View>
       )}
 
-      {result && !loading && (
+      {result && !isLoading && (
         <Text style={[styles.resultCount, { color: colors.mutedForeground }]}>
           {(result.result_count ?? 0).toLocaleString()} total — showing {result.rows.length}
         </Text>
       )}
 
-      {loading && (
+      {isLoading && (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Searching NPI registry…</Text>
         </View>
       )}
 
-      {!loading && !result && !error && (
+      {!isLoading && !result && !errorMsg && (
         <View style={styles.centered}>
           <Feather name="users" size={32} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Search providers</Text>
@@ -230,15 +233,15 @@ export default function NpiScreen() {
         </View>
       )}
 
-      {!loading && result && (
+      {!isLoading && result && (
         <FlatList
           data={result.rows as NpiProvider[]}
           keyExtractor={(item, i) => item.number ?? String(i)}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 10, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
-          refreshing={refreshing}
-          onRefresh={() => handleSearch(true)}
+          refreshing={isRefetching}
+          onRefresh={refetch}
         />
       )}
     </View>

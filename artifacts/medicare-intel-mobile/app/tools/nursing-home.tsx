@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -29,6 +30,11 @@ interface NursingHomeRow {
   _opportunity_score?: number;
 }
 
+interface NursingHomeResult {
+  rows: NursingHomeRow[];
+  total_records: number;
+}
+
 function fmt(n: number | string | undefined) {
   const num = Number(n ?? 0);
   return isNaN(num) ? "—" : num.toLocaleString("en-US");
@@ -53,33 +59,24 @@ export default function NursingHomeScreen() {
 
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ rows: NursingHomeRow[]; total_records: number } | null>(null);
+  const [queryParams, setQueryParams] = useState<{ state: string; city: string } | null>(null);
 
-  async function handleSearch(isRefresh = false) {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
-    try {
+  const { data: result, isLoading, isRefetching, error, refetch } = useQuery<NursingHomeResult>({
+    queryKey: ["nursing-home", queryParams],
+    queryFn: () => {
       const args: Record<string, unknown> = { max_rows: 200 };
-      if (state) args.state = state;
-      if (city) args.city = city;
-      const data = await mcp("nursing_home_opportunity", args) as { rows: NursingHomeRow[]; total_records: number };
-      setResult(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Request failed");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      if (queryParams!.state) args.state = queryParams!.state;
+      if (queryParams!.city) args.city = queryParams!.city;
+      return mcp("nursing_home_opportunity", args) as Promise<NursingHomeResult>;
+    },
+    enabled: queryParams !== null,
+  });
+
+  function handleSearch() {
+    setQueryParams({ state, city });
   }
 
-  const renderItem = ({ item, index }: { item: NursingHomeRow; index: number }) => {
+  const renderItem = ({ item }: { item: NursingHomeRow }) => {
     const score = item._opportunity_score ?? 0;
     const variant = score > 500 ? "success" : score > 100 ? "warning" : "default";
     const rating = Number(item.overall_rating ?? 0);
@@ -98,6 +95,8 @@ export default function NursingHomeScreen() {
     );
   };
 
+  const errorMsg = error instanceof Error ? error.message : error ? "Request failed" : null;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {!isOnline && <OfflineBanner />}
@@ -110,38 +109,38 @@ export default function NursingHomeScreen() {
           placeholder="City (optional)"
           placeholderTextColor={colors.mutedForeground}
           returnKeyType="search"
-          onSubmitEditing={() => handleSearch()}
+          onSubmitEditing={handleSearch}
         />
         <Pressable
           style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 }]}
-          onPress={() => handleSearch()}
-          disabled={loading}
+          onPress={handleSearch}
+          disabled={isLoading}
         >
-          {loading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
+          {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="search" size={16} color="#fff" />}
         </Pressable>
       </View>
 
-      {error && (
+      {errorMsg && (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "40" }]}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.destructive }]}>{errorMsg}</Text>
         </View>
       )}
 
-      {result && !loading && (
+      {result && !isLoading && (
         <View style={styles.statsRow}>
           <StatCard label="Returned" value={fmt(result.rows.length)} />
           <StatCard label="Total" value={fmt(result.total_records)} />
         </View>
       )}
 
-      {loading && (
+      {isLoading && (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Fetching nursing home data…</Text>
         </View>
       )}
 
-      {!loading && !result && !error && (
+      {!isLoading && !result && !errorMsg && (
         <View style={styles.centered}>
           <Feather name="map-pin" size={32} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Filter facilities</Text>
@@ -149,15 +148,15 @@ export default function NursingHomeScreen() {
         </View>
       )}
 
-      {!loading && result && (
+      {!isLoading && result && (
         <FlatList
           data={result.rows}
           keyExtractor={(_, i) => String(i)}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 10, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
-          refreshing={refreshing}
-          onRefresh={() => handleSearch(true)}
+          refreshing={isRefetching}
+          onRefresh={refetch}
         />
       )}
     </View>
