@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/medicare-intel-mobile/"
+title = "Medicare Intelligence Mobile"
+version = "1.0.0"
+id = "artifacts/medicare-intel-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+name = "expo"
+paths = [ "/medicare-intel-mobile/" ]
+localPort = 8099
+
+[services.development]
+run = "pnpm --filter @workspace/medicare-intel-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/medicare-intel-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/medicare-intel-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "8099"
+EXPO_PORT = "25690"
+BASE_PATH = "/medicare-intel-mobile/"
