@@ -15,22 +15,41 @@ const MapContent = dynamic(
     return {
       default: ({ zips }: { zips: string[] }) => {
         const [markers, setMarkers] = useState<Array<{ zip: string; coords: [number, number] }>>([]);
-        const [loading, setLoading] = useState(true);
+        const [isInitialLoading, setIsInitialLoading] = useState(true);
 
         useEffect(() => {
+          let cancelled = false;
+          const zipList = zips.slice(0, 500);
+          if (zipList.length === 0) {
+            setIsInitialLoading(false);
+            return;
+          }
+
           (async () => {
             try {
-              const results = await getZipCodeLocations(zips.slice(0, 500));
-              setMarkers(results);
+              const batchSize = 20;
+              let accumulated: Array<{ zip: string; coords: [number, number] }> = [];
+
+              for (let i = 0; i < zipList.length; i += batchSize) {
+                if (cancelled) return;
+
+                const batch = zipList.slice(i, i + batchSize);
+                const results = await getZipCodeLocations(batch);
+                accumulated = [...accumulated, ...results];
+
+                if (i === 0) setIsInitialLoading(false);
+                setMarkers([...accumulated]);
+              }
             } catch {
-              setMarkers([]);
-            } finally {
-              setLoading(false);
+              if (!cancelled) {
+                setMarkers([]);
+                setIsInitialLoading(false);
+              }
             }
           })();
-        }, [zips]);
 
-        if (loading) return <div className="h-96 flex items-center justify-center">Loading map...</div>;
+          return () => { cancelled = true; };
+        }, [zips]);
 
         const bounds = markers.length > 0
           ? [
@@ -40,30 +59,37 @@ const MapContent = dynamic(
           : [[25, -125], [50, -66]];
 
         return (
-          <MapContainer
-            bounds={bounds as any}
-            className="h-96 w-full rounded-lg border border-[hsl(var(--border))]"
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            {markers.map((m) => (
-              <CircleMarker
-                key={m.zip}
-                center={m.coords}
-                pathOptions={{
-                  radius: 4,
-                  fillColor: "hsl(var(--primary))",
-                  color: "hsl(var(--primary))",
-                  weight: 1,
-                  opacity: 0.7,
-                  fillOpacity: 0.6,
-                }}
-              >
-                <Popup>{m.zip}</Popup>
-              </CircleMarker>
-            ))}
-          </MapContainer>
+          <div className="relative h-96 w-full rounded-lg border border-[hsl(var(--border))] overflow-hidden">
+            <MapContainer
+              bounds={bounds as any}
+              className="h-full w-full"
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              {markers.map((m) => (
+                <CircleMarker
+                  key={m.zip}
+                  center={m.coords}
+                  pathOptions={{
+                    radius: 4,
+                    fillColor: "hsl(var(--primary))",
+                    color: "hsl(var(--primary))",
+                    weight: 1,
+                    opacity: 0.7,
+                    fillOpacity: 0.6,
+                  }}
+                >
+                  <Popup>{m.zip}</Popup>
+                </CircleMarker>
+              ))}
+            </MapContainer>
+            {isInitialLoading && (
+              <div className="absolute inset-0 bg-black/5 flex items-center justify-center">
+                <div className="text-xs text-[hsl(var(--muted-foreground))]">Loading locations...</div>
+              </div>
+            )}
+          </div>
         );
       },
     };

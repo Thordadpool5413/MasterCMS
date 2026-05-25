@@ -25,6 +25,16 @@ function ScoreBadge({ score }: { score: number }) {
   return <Badge variant={variant}>{formatNumber(score)}</Badge>;
 }
 
+function QualityMetric({ label, value, context }: { label: string; value: number | string; context?: string }) {
+  return (
+    <div className="rounded-md border border-[hsl(var(--border))] p-3">
+      <p className="text-xs text-[hsl(var(--muted-foreground))]">{label}</p>
+      <p className="mt-1 text-lg font-semibold">{value}</p>
+      {context && <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{context}</p>}
+    </div>
+  );
+}
+
 function HospitalDetail({ row, onClose }: { row: HospitalRow; onClose: () => void }) {
   const [hospices, setHospices] = useState<HospiceRow[]>([]);
   const [loadingHospices, setLoadingHospices] = useState(true);
@@ -182,16 +192,34 @@ export default function HospitalOpportunityPage() {
 
       {!loading && result && (
         <>
-          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: "Records Returned", value: formatNumber(result.rows.length) },
-              { label: "Total Matched", value: formatNumber(result.total_records) },
-              { label: "Top Score", value: formatNumber(result.rows[0]?._opportunity_score ?? 0) },
+              {
+                label: "Hospitals",
+                value: formatNumber(result.rows.length),
+                context: `of ${formatNumber(result.total_records)} total`
+              },
+              {
+                label: "Total Discharges",
+                value: formatNumber(
+                  result.rows.reduce((sum, r) => sum + Number(r.Tot_Dschrgs || 0), 0)
+                ),
+              },
+              {
+                label: "Avg Opportunity Score",
+                value: result.rows.length > 0
+                  ? formatNumber(
+                      result.rows.reduce((sum, r) => sum + r._opportunity_score, 0) /
+                        result.rows.length
+                    )
+                  : "—",
+              },
+              {
+                label: "Top Score",
+                value: formatNumber(result.rows[0]?._opportunity_score ?? 0),
+              },
             ].map((s) => (
-              <div key={s.label} className="rounded-lg border border-[hsl(var(--border))] p-3">
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">{s.label}</p>
-                <p className="mt-1 text-lg font-semibold">{s.value}</p>
-              </div>
+              <QualityMetric key={s.label} label={s.label} value={s.value} context={s.context} />
             ))}
           </div>
 
@@ -200,18 +228,12 @@ export default function HospitalOpportunityPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Hospital</TableHead>
-                  <TableHead>City</TableHead>
-                  <TableHead>State</TableHead>
-                  <TableHead>ZIP</TableHead>
-                  <TableHead>CCN</TableHead>
-                  <TableHead>DRG Code</TableHead>
-                  <TableHead>DRG Description</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead className="text-right">Discharges</TableHead>
-                  <TableHead className="text-right">Avg Submitted</TableHead>
-                  <TableHead className="text-right">Avg Total Pmt</TableHead>
-                  <TableHead className="text-right">Avg Medicare Pmt</TableHead>
-                  <TableHead>Hospice DRG Match</TableHead>
-                  <TableHead>Score</TableHead>
+                  <TableHead>DRG</TableHead>
+                  <TableHead className="text-right">Avg Medicare Payment</TableHead>
+                  <TableHead>Hospice Match</TableHead>
+                  <TableHead className="text-right">Opportunity Score</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -221,25 +243,27 @@ export default function HospitalOpportunityPage() {
                     className="cursor-pointer hover:bg-[hsl(var(--muted))]/40"
                     onClick={() => setSelectedHospital(row)}
                   >
-                    <TableCell className="font-medium max-w-[180px] truncate" title={row.Rndrng_Prvdr_Org_Name}>{row.Rndrng_Prvdr_Org_Name ?? "—"}</TableCell>
-                    <TableCell>{row.Rndrng_Prvdr_City ?? "—"}</TableCell>
-                    <TableCell>{row.Rndrng_Prvdr_State_Abrvtn ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{row.Rndrng_Prvdr_Zip_Cd ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{row.Rndrng_Prvdr_CCN ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{row.DRG_Cd ?? "—"}</TableCell>
-                    <TableCell className="max-w-[200px] truncate text-xs" title={row.DRG_Desc}>{row.DRG_Desc ?? "—"}</TableCell>
+                    <TableCell className="font-medium max-w-[200px] truncate" title={row.Rndrng_Prvdr_Org_Name}>
+                      {row.Rndrng_Prvdr_Org_Name ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <div>{row.Rndrng_Prvdr_City}, {row.Rndrng_Prvdr_State_Abrvtn}</div>
+                      <div className="text-xs text-[hsl(var(--muted-foreground))]">{row.Rndrng_Prvdr_Zip_Cd}</div>
+                    </TableCell>
                     <TableCell className="text-right">{formatNumber(Number(row.Tot_Dschrgs))}</TableCell>
-                    <TableCell className="text-right">{currency(row.Avg_Submtd_Cvrd_Chrg)}</TableCell>
-                    <TableCell className="text-right">{currency(row.Avg_Tot_Pymt_Amt)}</TableCell>
+                    <TableCell className="text-sm">
+                      <div>{row.DRG_Cd}</div>
+                      <div className="text-xs text-[hsl(var(--muted-foreground))] max-w-[180px]">{row.DRG_Desc}</div>
+                    </TableCell>
                     <TableCell className="text-right">{currency(row.Avg_Mdcr_Pymt_Amt)}</TableCell>
                     <TableCell>
                       {row._matched_hospice_terms.length > 0 ? (
-                        <Badge variant="success">{row._matched_hospice_terms.slice(0, 2).join(", ")}</Badge>
+                        <Badge variant="success" className="text-xs">{row._matched_hospice_terms[0]}</Badge>
                       ) : (
-                        <Badge variant="secondary">None</Badge>
+                        <Badge variant="secondary" className="text-xs">None</Badge>
                       )}
                     </TableCell>
-                    <TableCell><ScoreBadge score={row._opportunity_score} /></TableCell>
+                    <TableCell className="text-right"><ScoreBadge score={row._opportunity_score} /></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
