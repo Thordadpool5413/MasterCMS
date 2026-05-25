@@ -15,4 +15,4 @@ jobs:
       - name: Code Review
         uses: tarmojussila/xai-code-review@v0.1.0
         with:
-          XAI_API_KEY: ${{ xai-92vrbiujPIdzrp15YvGS7DZEYqnbkXrm27cXlXZS6SRBVm1tpgE4JX4cgCG7elK6u8MMEsZknkhjaBjn }}
+          XAI_API_KEY: ${{xai-92vrbiujPIdzrp15YvGS7DZEYqnbkXrm27cXlXZS6SRBVm1tpgE4JX4cgCG7elK6u8MMEsZknkhjaBjn}}
