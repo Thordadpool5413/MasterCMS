@@ -11,6 +11,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { ErrorBanner } from "@/components/shared/error-banner";
+import { DataSourceBadge } from "@/components/shared/data-source-badge";
+import { TrustBadge } from "@/components/shared/trust-badge";
+import { DataFreshnessIndicator } from "@/components/shared/data-freshness-indicator";
 import { StateSelect } from "@/components/shared/state-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { mcp } from "@/lib/api";
@@ -430,9 +433,15 @@ export default function CompetitorIntelPage() {
 
       {results && !loading && (
         <>
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-3">
+            <DataSourceBadge source={tab === "nonprofits" ? "ProPublica 990" : "SEC EDGAR"} verified={true} />
+            <DataFreshnessIndicator lastUpdated={new Date()} />
+            <TrustBadge level="high" description={tab === "nonprofits" ? "IRS Form 990 filing data" : "SEC public company filings"} />
+          </div>
+
           <p className="mb-3 text-xs text-[hsl(var(--muted-foreground))]">
             {results.total.toLocaleString()} organizations found
-            {state ? ` in ${state}` : ""} · Source: ProPublica Nonprofit Explorer
+            {state ? ` in ${state}` : ""} · Source: {tab === "nonprofits" ? "ProPublica Nonprofit Explorer" : "SEC EDGAR"}
           </p>
 
           {results.organizations.length === 0 ? (

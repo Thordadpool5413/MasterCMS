@@ -9,8 +9,15 @@ import { ErrorBanner } from "@/components/shared/error-banner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { StateSelect } from "@/components/shared/state-select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { DrugSafetyCard } from "@/components/shared/drug-safety-card";
+import { ClinicalTrialsCard } from "@/components/shared/clinical-trials-card";
+import { searchDrugSafety } from "@/lib/openfda";
+import { searchClinicalTrials } from "@/lib/clinical-trials";
 import { mcp } from "@/lib/api";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { DrugSafetyData } from "@/lib/openfda";
+import type { ClinicalTrialsSearchResult } from "@/lib/clinical-trials";
 
 type PrescriberRow = {
   npi: string;
@@ -38,7 +45,65 @@ function fmt(v: number) {
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(v);
 }
 
+function SafetyPanel({ drugName }: { drugName: string }) {
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [data, setData] = useState<DrugSafetyData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    if (loaded) return;
+    setLoading(true);
+    try {
+      const result = await searchDrugSafety(drugName);
+      setData(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load safety data");
+    } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  }
+
+  if (!loaded && !loading) load();
+
+  if (loading) return <LoadingSpinner label="Loading FDA safety profile…" />;
+  if (error) return <ErrorBanner message={error} />;
+
+  return <DrugSafetyCard data={data} />;
+}
+
+function TrialsPanel({ drugName }: { drugName: string }) {
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [data, setData] = useState<ClinicalTrialsSearchResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    if (loaded) return;
+    setLoading(true);
+    try {
+      const result = await searchClinicalTrials(drugName);
+      setData(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load clinical trials");
+    } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  }
+
+  if (!loaded && !loading) load();
+
+  if (loading) return <LoadingSpinner label="Loading clinical trials…" />;
+  if (error) return <ErrorBanner message={error} />;
+
+  return <ClinicalTrialsCard data={data} />;
+}
+
 function PrescriberDetail({ row, onClose }: { row: PrescriberRow; onClose: () => void }) {
+  const [searchDrug, setSearchDrug] = useState("");
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/40" onClick={onClose}>
       <div
@@ -58,36 +123,86 @@ function PrescriberDetail({ row, onClose }: { row: PrescriberRow; onClose: () =>
           </Button>
         </div>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-md border border-[hsl(var(--border))] p-3">
-              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Specialty</dt>
-              <dd className="mt-0.5 text-sm font-medium">{row.prescriber_type || "—"}</dd>
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="drug-safety">Safety</TabsTrigger>
+            <TabsTrigger value="drug-trials">Trials</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-md border border-[hsl(var(--border))] p-3">
+                <dt className="text-xs text-[hsl(var(--muted-foreground))]">Specialty</dt>
+                <dd className="mt-0.5 text-sm font-medium">{row.prescriber_type || "—"}</dd>
+              </div>
+              <div className="rounded-md border border-[hsl(var(--border))] p-3">
+                <dt className="text-xs text-[hsl(var(--muted-foreground))]">Location</dt>
+                <dd className="mt-0.5 text-sm font-medium">{[row.city, row.state, row.zip].filter(Boolean).join(", ") || "—"}</dd>
+              </div>
+              <div className="rounded-md border border-[hsl(var(--border))] p-3">
+                <dt className="text-xs text-[hsl(var(--muted-foreground))]">Total Claims</dt>
+                <dd className="mt-0.5 text-sm font-mono font-medium">{fmt(row.total_claims)}</dd>
+              </div>
+              <div className="rounded-md border border-[hsl(var(--border))] p-3">
+                <dt className="text-xs text-[hsl(var(--muted-foreground))]">Total Drug Cost</dt>
+                <dd className="mt-0.5 text-sm font-mono font-medium">{dollars(row.total_drug_cost)}</dd>
+              </div>
+              <div className="rounded-md border border-[hsl(var(--border))] p-3">
+                <dt className="text-xs text-[hsl(var(--muted-foreground))]">Total Beneficiaries</dt>
+                <dd className="mt-0.5 text-sm font-mono font-medium">{fmt(row.total_beneficiaries)}</dd>
+              </div>
+              <div className="rounded-md border border-[hsl(var(--border))] p-3">
+                <dt className="text-xs text-[hsl(var(--muted-foreground))]">Brand/Generic Mix</dt>
+                <dd className="mt-0.5 text-sm font-medium">
+                  {row.brand_claims ? `${fmt(row.brand_claims)} / ${fmt(row.generic_claims ?? 0)}` : "—"}
+                </dd>
+              </div>
             </div>
-            <div className="rounded-md border border-[hsl(var(--border))] p-3">
-              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Location</dt>
-              <dd className="mt-0.5 text-sm font-medium">{[row.city, row.state, row.zip].filter(Boolean).join(", ") || "—"}</dd>
+          </TabsContent>
+
+          <TabsContent value="drug-safety" className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-[hsl(var(--muted-foreground))] block mb-2">
+                Enter a drug name to view FDA safety data
+              </label>
+              <Input
+                value={searchDrug}
+                onChange={(e) => setSearchDrug(e.target.value)}
+                placeholder="e.g. Eliquis, Ozempic, Metformin"
+                className="mb-4"
+              />
             </div>
-            <div className="rounded-md border border-[hsl(var(--border))] p-3">
-              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Total Claims</dt>
-              <dd className="mt-0.5 text-sm font-mono font-medium">{fmt(row.total_claims)}</dd>
+            {searchDrug.trim() ? (
+              <SafetyPanel drugName={searchDrug.trim()} />
+            ) : (
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Enter a drug name above to view FDA FAERS safety profile, adverse events, and top reactions.
+              </p>
+            )}
+          </TabsContent>
+
+          <TabsContent value="drug-trials" className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-[hsl(var(--muted-foreground))] block mb-2">
+                Enter a drug name to view clinical trials
+              </label>
+              <Input
+                value={searchDrug}
+                onChange={(e) => setSearchDrug(e.target.value)}
+                placeholder="e.g. Eliquis, Ozempic, Metformin"
+                className="mb-4"
+              />
             </div>
-            <div className="rounded-md border border-[hsl(var(--border))] p-3">
-              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Total Drug Cost</dt>
-              <dd className="mt-0.5 text-sm font-mono font-medium">{dollars(row.total_drug_cost)}</dd>
-            </div>
-            <div className="rounded-md border border-[hsl(var(--border))] p-3">
-              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Total Beneficiaries</dt>
-              <dd className="mt-0.5 text-sm font-mono font-medium">{fmt(row.total_beneficiaries)}</dd>
-            </div>
-            <div className="rounded-md border border-[hsl(var(--border))] p-3">
-              <dt className="text-xs text-[hsl(var(--muted-foreground))]">Brand/Generic Mix</dt>
-              <dd className="mt-0.5 text-sm font-medium">
-                {row.brand_claims ? `${fmt(row.brand_claims)} / ${fmt(row.generic_claims ?? 0)}` : "—"}
-              </dd>
-            </div>
-          </div>
-        </div>
+            {searchDrug.trim() ? (
+              <TrialsPanel drugName={searchDrug.trim()} />
+            ) : (
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Enter a drug name above to view active and completed clinical trials on ClinicalTrials.gov.
+              </p>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

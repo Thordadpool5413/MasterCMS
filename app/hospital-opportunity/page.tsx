@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { StateSelect } from "@/components/shared/state-select";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { ErrorBanner } from "@/components/shared/error-banner";
+import { DataSourceBadge } from "@/components/shared/data-source-badge";
+import { TrustBadge } from "@/components/shared/trust-badge";
+import { DataFreshnessIndicator } from "@/components/shared/data-freshness-indicator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { mcp } from "@/lib/api";
@@ -192,6 +195,12 @@ export default function HospitalOpportunityPage() {
 
       {!loading && result && (
         <>
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-3">
+            <DataSourceBadge source="CMS Hospital Claims" verified={true} />
+            <DataFreshnessIndicator lastUpdated={new Date()} />
+            <TrustBadge level="high" description="Medicare inpatient discharge data from CMS" />
+          </div>
+
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               {

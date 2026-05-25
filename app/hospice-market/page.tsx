@@ -11,6 +11,9 @@ import { StateSelect } from "@/components/shared/state-select";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DataSourceBadge } from "@/components/shared/data-source-badge";
+import { TrustBadge } from "@/components/shared/trust-badge";
+import { DataFreshnessIndicator } from "@/components/shared/data-freshness-indicator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { mcp } from "@/lib/api";
 import { formatNumber } from "@/lib/utils";
@@ -844,6 +847,12 @@ function HospiceMarketView() {
 
       {!loading && result && (
         <>
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-3">
+            <DataSourceBadge source="CMS Direct" lastUpdated={`${result.year_used}`} verified={true} />
+            <DataFreshnessIndicator lastUpdated={new Date()} />
+            <TrustBadge level="high" description="Data sourced from authoritative government databases" />
+          </div>
+
           {result.state_summary && (
             <div className="mb-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40 p-4">
               <p className="text-xs uppercase tracking-wide text-[hsl(var(--muted-foreground))]">

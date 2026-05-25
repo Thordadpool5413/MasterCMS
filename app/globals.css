@@ -51,3 +51,45 @@ body {
   color: hsl(var(--foreground));
   font-family: var(--font-sans), Arial, sans-serif;
 }
+
+/* Smooth transitions for interactive elements */
+button, a, input, select, textarea {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Better focus states for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Improved table styling */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+thead {
+  background: hsl(var(--muted) / 0.5);
+  position: sticky;
+  top: 0;
+}
+
+tbody tr:hover {
+  background: hsl(var(--muted) / 0.3);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection styling */
+::selection {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}

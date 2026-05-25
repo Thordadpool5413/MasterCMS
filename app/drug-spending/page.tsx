@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, DollarSign, ChevronDown, ChevronUp, AlertTriangle, FileText } from "lucide-react";
+import { Search, DollarSign, ChevronDown, ChevronUp, AlertTriangle, FileText, Shield, Microscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { mcp } from "@/lib/api";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DrugSafetyCard } from "@/components/shared/drug-safety-card";
+import { ClinicalTrialsCard } from "@/components/shared/clinical-trials-card";
+import { searchDrugSafety } from "@/lib/openfda";
+import { searchClinicalTrials } from "@/lib/clinical-trials";
 import type { DrugSpendingRow, AdverseEventReaction, DrugLabelSummary } from "@/lib/cms-direct";
+import type { DrugSafetyData } from "@/lib/openfda";
+import type { ClinicalTrialsSearchResult } from "@/lib/clinical-trials";
 import { cn } from "@/lib/utils";
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -32,6 +38,66 @@ const compact = (v: number | undefined) =>
   v
     ? new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(v)
     : "—";
+
+// ─── Safety profile panel ────────────────────────────────────────────────────
+
+function SafetyPanel({ drugName }: { drugName: string }) {
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [data, setData] = useState<DrugSafetyData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    if (loaded) return;
+    setLoading(true);
+    try {
+      const result = await searchDrugSafety(drugName);
+      setData(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load safety data");
+    } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  }
+
+  if (!loaded && !loading) load();
+
+  if (loading) return <LoadingSpinner label="Loading FDA safety profile…" />;
+  if (error) return <ErrorBanner message={error} />;
+
+  return <DrugSafetyCard data={data} />;
+}
+
+// ─── Clinical trials panel ────────────────────────────────────────────────────
+
+function TrialsPanel({ drugName }: { drugName: string }) {
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [data, setData] = useState<ClinicalTrialsSearchResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    if (loaded) return;
+    setLoading(true);
+    try {
+      const result = await searchClinicalTrials(drugName);
+      setData(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load clinical trials");
+    } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  }
+
+  if (!loaded && !loading) load();
+
+  if (loading) return <LoadingSpinner label="Loading clinical trials…" />;
+  if (error) return <ErrorBanner message={error} />;
+
+  return <ClinicalTrialsCard data={data} />;
+}
 
 // ─── Adverse events panel ─────────────────────────────────────────────────────
 
@@ -174,17 +240,31 @@ function DrugLabelPanel({ drugName }: { drugName: string }) {
 function DrugDetail({ drug }: { drug: DrugSpendingRow }) {
   return (
     <div className="bg-[hsl(var(--muted)/0.4)] border-t border-[hsl(var(--border))] px-6 py-4">
-      <Tabs defaultValue="adverse">
-        <TabsList className="mb-4">
+      <Tabs defaultValue="safety">
+        <TabsList className="mb-4 grid w-full grid-cols-4">
+          <TabsTrigger value="safety">
+            <Shield className="h-3.5 w-3.5 mr-1.5 inline" />
+            Safety
+          </TabsTrigger>
+          <TabsTrigger value="trials">
+            <Microscope className="h-3.5 w-3.5 mr-1.5 inline" />
+            Trials
+          </TabsTrigger>
           <TabsTrigger value="adverse">
             <AlertTriangle className="h-3.5 w-3.5 mr-1.5 inline" />
-            Adverse Events
+            Events
           </TabsTrigger>
           <TabsTrigger value="label">
             <FileText className="h-3.5 w-3.5 mr-1.5 inline" />
-            Drug Label
+            Label
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="safety">
+          <SafetyPanel drugName={drug.brand_name || drug.generic_name} />
+        </TabsContent>
+        <TabsContent value="trials">
+          <TrialsPanel drugName={drug.brand_name || drug.generic_name} />
+        </TabsContent>
         <TabsContent value="adverse">
           <AdverseEventsPanel drugName={drug.brand_name || drug.generic_name} />
         </TabsContent>
