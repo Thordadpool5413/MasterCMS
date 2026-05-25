@@ -10,7 +10,7 @@ interface DataSourceBadgeProps {
 export function DataSourceBadge({ source, lastUpdated, verified }: DataSourceBadgeProps) {
   return (
     <div className="flex items-center gap-2 flex-wrap text-xs">
-      <Badge variant="outline" className="gap-1">
+      <Badge variant="secondary" className="gap-1">
         <Database className="h-3 w-3" />
         {source}
       </Badge>

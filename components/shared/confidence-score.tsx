@@ -18,7 +18,7 @@ export function ConfidenceScore({ score, max = 100, label }: ConfidenceScoreProp
           <div className={`h-full transition-all ${color}`} style={{ width: `${percentage}%` }} />
         </div>
       </div>
-      <Badge variant="outline" className={`${textColor} font-semibold`}>
+      <Badge variant="secondary" className={`${textColor} font-semibold`}>
         {label ? `${label}: ` : ""}{percentage.toFixed(0)}%
       </Badge>
     </div>
