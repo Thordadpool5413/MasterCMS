@@ -1118,6 +1118,8 @@ export async function searchNonprofits(
   const res = await fetch(`${PROPUBLICA_API}/search.json?${params}`, {
     signal: AbortSignal.timeout(15_000),
   });
+  // ProPublica returns 404 when no matching orgs exist — treat as empty, not an error
+  if (res.status === 404) return { organizations: [], total: 0 };
   if (!res.ok) throw new Error(`ProPublica API error ${res.status}`);
   const data = (await res.json()) as { total_results?: number; organizations?: NonprofitOrg[] };
 

@@ -20,6 +20,7 @@ import { formatNumber } from "@/lib/utils";
 import type { HospiceResult, HospiceRow, HospiceGroupBy, HospiceProviderDetail, HospiceMeasureScore } from "@/lib/cms-direct";
 import { HOSPICE_DX_LABELS } from "@/lib/cms-direct";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ComparisonButton } from "@/components/shared/comparison-button";
 
 function currency(v: unknown) {
   const n = parseFloat(String(v ?? "0").replace(/,/g, ""));
@@ -917,6 +918,7 @@ function HospiceMarketView() {
                     ))}
                     <TableHead>Dominant DX</TableHead>
                     <TableHead>Market</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -945,6 +947,24 @@ function HospiceMarketView() {
                         <SpecialtyBadge row={row} />
                       </TableCell>
                       <TableCell className="max-w-[140px] truncate text-xs" title={row._market}>{row._market}</TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <ComparisonButton item={{
+                          id: row._provider_id || row._provider_name,
+                          name: row._provider_name,
+                          type: "hospice",
+                          data: {
+                            city: row._city,
+                            state: row._state,
+                            market_share_pct: row._market_share_pct,
+                            beneficiaries: row._market_volume,
+                            star_rating: row.star_rating,
+                            hci_overall: row.hci_overall,
+                            payment_per_bene: row._payment_per_bene,
+                            avg_los: row._avg_los,
+                            ownership: row.ownership_type,
+                          }
+                        }} />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
