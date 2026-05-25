@@ -119,43 +119,89 @@ function DetailPanel({ ein }: { ein: string }) {
 
   const org = data.organization;
   const filings = data.filings.sort((a, b) => b.tax_prd_yr.localeCompare(a.tax_prd_yr));
+  const latest = filings[0];
 
   return (
-    <div className="bg-[hsl(var(--muted)/0.4)] border-t border-[hsl(var(--border))] px-4 py-4">
+    <div className="bg-[hsl(var(--muted)/0.4)] border-t border-[hsl(var(--border))] px-4 py-5 space-y-5">
       {/* Org meta */}
-      <div className="mb-4 flex flex-wrap gap-4 text-sm">
+      <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
         <div>
           <span className="text-xs text-[hsl(var(--muted-foreground))]">EIN</span>
-          <p className="font-mono font-medium">{org.ein}</p>
+          <p className="font-mono font-medium">{org.strein || org.ein}</p>
         </div>
-        <div>
-          <span className="text-xs text-[hsl(var(--muted-foreground))]">Location</span>
-          <p className="font-medium">{[org.address, org.city, org.state, org.zipcode].filter(Boolean).join(", ") || [org.city, org.state].filter(Boolean).join(", ")}</p>
-        </div>
+        {org.address && (
+          <div>
+            <span className="text-xs text-[hsl(var(--muted-foreground))]">Address</span>
+            <p className="font-medium">{[org.address, org.city, org.state, org.zipcode].filter(Boolean).join(", ")}</p>
+          </div>
+        )}
+        {!org.address && (org.city || org.state) && (
+          <div>
+            <span className="text-xs text-[hsl(var(--muted-foreground))]">Location</span>
+            <p className="font-medium">{[org.city, org.state].filter(Boolean).join(", ")}</p>
+          </div>
+        )}
         {org.ntee_code && (
           <div>
-            <span className="text-xs text-[hsl(var(--muted-foreground))]">NTEE Code</span>
+            <span className="text-xs text-[hsl(var(--muted-foreground))]">NTEE</span>
             <p className="font-medium">{org.ntee_code}</p>
           </div>
         )}
-        {org.num_employees != null && (
+        {org.subseccd > 0 && (
           <div>
-            <span className="text-xs text-[hsl(var(--muted-foreground))]">Employees</span>
-            <p className="font-medium">{org.num_employees.toLocaleString()}</p>
+            <span className="text-xs text-[hsl(var(--muted-foreground))]">Status</span>
+            <p className="font-medium">501(c)({org.subseccd})</p>
+          </div>
+        )}
+        {org.ruling_date && (
+          <div>
+            <span className="text-xs text-[hsl(var(--muted-foreground))]">Ruling Date</span>
+            <p className="font-medium">{org.ruling_date}</p>
+          </div>
+        )}
+        {org.tax_period && (
+          <div>
+            <span className="text-xs text-[hsl(var(--muted-foreground))]">Tax Period</span>
+            <p className="font-medium">{org.tax_period}</p>
           </div>
         )}
       </div>
 
+      {/* Most-recent-year financial snapshot */}
+      {latest && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: "Revenue", value: usd(latest.totrevenue) },
+            { label: "Expenses", value: usd(latest.totfuncexpns) },
+            { label: "Net Assets", value: usd(latest.totnetassetend || latest.totassetsend - latest.totliabend) },
+            { label: "Margin", value: <Margin revenue={latest.totrevenue} expenses={latest.totfuncexpns} /> },
+            { label: "Contributions", value: usd(latest.totcntrbgfts) },
+            { label: "Program Revenue", value: usd(latest.totprgmrevnue) },
+            { label: "Investment Inc.", value: usd(latest.invstmntinc) },
+            { label: "Fundraising Inc.", value: usd(latest.netincfndrsng) },
+            { label: "Exec Comp", value: usd(latest.compnsatncurrofcr) },
+            { label: "Other Salaries", value: usd(latest.othrsalwages) },
+            { label: "Payroll Tax", value: usd(latest.payrolltx) },
+            { label: "Prof. Fundraising", value: usd(latest.profndraising) },
+          ].map(({ label, value }) => (
+            <div key={label} className="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2.5">
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">{label}</p>
+              <p className="mt-0.5 text-sm font-mono font-semibold">{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Revenue sparkline */}
       {filings.length >= 2 && (
-        <div className="mb-4 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <span className="text-xs text-[hsl(var(--muted-foreground))]">Revenue trend</span>
           <RevSparkline filings={filings} />
           <span className="text-xs text-[hsl(var(--muted-foreground))]">{filings[filings.length - 1]?.tax_prd_yr} → {filings[0]?.tax_prd_yr}</span>
         </div>
       )}
 
-      {/* Filing history table */}
+      {/* Full filing history */}
       {filings.length > 0 ? (
         <div className="rounded-md border border-[hsl(var(--border))] overflow-x-auto bg-[hsl(var(--card))]">
           <Table>
@@ -165,7 +211,8 @@ function DetailPanel({ ein }: { ein: string }) {
                 <TableHead>Form</TableHead>
                 <TableHead className="text-right">Revenue</TableHead>
                 <TableHead className="text-right">Expenses</TableHead>
-                <TableHead className="text-right">Assets</TableHead>
+                <TableHead className="text-right">Net Assets</TableHead>
+                <TableHead className="text-right">Liabilities</TableHead>
                 <TableHead className="text-right">Exec Comp</TableHead>
                 <TableHead className="text-right">Margin</TableHead>
                 <TableHead></TableHead>
@@ -173,26 +220,27 @@ function DetailPanel({ ein }: { ein: string }) {
             </TableHeader>
             <TableBody>
               {filings.map((f) => (
-                <TableRow key={f.tax_prd_yr}>
+                <TableRow key={`${f.tax_prd_yr}-${f.tax_prd}`}>
                   <TableCell className="font-medium">{f.tax_prd_yr}</TableCell>
                   <TableCell className="text-xs text-[hsl(var(--muted-foreground))]">{f.formtype}</TableCell>
                   <TableCell className="text-right font-mono text-sm">{usd(f.totrevenue)}</TableCell>
                   <TableCell className="text-right font-mono text-sm text-[hsl(var(--muted-foreground))]">{usd(f.totfuncexpns)}</TableCell>
-                  <TableCell className="text-right font-mono text-sm text-[hsl(var(--muted-foreground))]">{usd(f.totassetsend)}</TableCell>
-                  <TableCell className="text-right font-mono text-sm text-[hsl(var(--muted-foreground))]">{usd(f.compnsatncurrofcr)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm text-[hsl(var(--muted-foreground))]">{usd(f.totnetassetend || f.totassetsend - f.totliabend)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm text-[hsl(var(--muted-foreground))]">{usd(f.totliabend)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm text-[hsl(var(--muted-foreground))]">
+                    {usd(f.compnsatncurrofcr)}
+                    {f.pct_compnsatncurrofcr > 0 && (
+                      <span className="ml-1 text-xs text-[hsl(var(--muted-foreground))]">({(f.pct_compnsatncurrofcr * 100).toFixed(1)}%)</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Margin revenue={f.totrevenue} expenses={f.totfuncexpns} />
                   </TableCell>
                   <TableCell>
-                    {f.pdf_url && (
-                      <a
-                        href={f.pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-[hsl(var(--primary))] hover:underline"
-                      >
-                        <FileText className="h-3 w-3" />
-                        990
+                    {f.pdf_url && f.pdf_url !== "undefined" && (
+                      <a href={f.pdf_url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-[hsl(var(--primary))] hover:underline">
+                        <FileText className="h-3 w-3" />990
                       </a>
                     )}
                   </TableCell>
@@ -457,11 +505,10 @@ export default function CompetitorIntelPage() {
                   <TableRow>
                     <TableHead className="w-8"></TableHead>
                     <TableHead>Organization</TableHead>
+                    <TableHead>EIN</TableHead>
                     <TableHead>State</TableHead>
                     <TableHead>NTEE</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                    <TableHead className="text-right">Assets</TableHead>
-                    <TableHead className="text-right">990s</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead className="text-right">Filings</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -482,37 +529,37 @@ export default function CompetitorIntelPage() {
                         <TableCell>
                           <div>
                             <span className="font-medium text-sm">{org.name}</span>
+                            {org.sub_name && org.sub_name !== org.name && (
+                              <p className="text-xs text-[hsl(var(--muted-foreground))]">{org.sub_name}</p>
+                            )}
                             {org.city && (
-                              <span className="ml-2 text-xs text-[hsl(var(--muted-foreground))]">{org.city}</span>
+                              <p className="text-xs text-[hsl(var(--muted-foreground))]">{org.city}</p>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-[hsl(var(--muted-foreground))]">
+                          {org.strein || org.ein}
                         </TableCell>
                         <TableCell className="text-sm">{org.state || "—"}</TableCell>
                         <TableCell>
                           {org.ntee_code ? (
-                            <Badge variant="secondary" className="font-mono text-xs">
-                              {org.ntee_code}
-                            </Badge>
+                            <Badge variant="secondary" className="font-mono text-xs">{org.ntee_code}</Badge>
                           ) : "—"}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {usd(org.income_amount)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-[hsl(var(--muted-foreground))]">
-                          {usd(org.asset_amount)}
-                        </TableCell>
-                        <TableCell className="text-right text-sm text-[hsl(var(--muted-foreground))]">
-                          {org.form_990_count || "—"}
+                        <TableCell>
+                          {org.subseccd > 0 ? (
+                            <Badge variant="secondary" className="text-xs">501(c)({org.subseccd})</Badge>
+                          ) : "—"}
                         </TableCell>
                         <TableCell className="text-right">
-                          {org.have_pdfs && (
+                          {org.have_filings ? (
                             <ExternalLink className="h-3 w-3 text-[hsl(var(--primary))] inline" />
-                          )}
+                          ) : "—"}
                         </TableCell>
                       </TableRow>
                       {expanded.has(org.ein) && (
                         <tr key={`${org.ein}-detail`}>
-                          <td colSpan={8} className="p-0">
+                          <td colSpan={7} className="p-0">
                             <DetailPanel ein={org.ein} />
                           </td>
                         </tr>

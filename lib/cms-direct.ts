@@ -1077,35 +1077,67 @@ export async function lookupNpi(params: {
 
 const PROPUBLICA_API = "https://projects.propublica.org/nonprofits/api/v2";
 
+// Fields returned by the search endpoint (different from detail endpoint)
 export interface NonprofitOrg {
-  ein: string;
+  ein: string;       // numeric EIN as string
+  strein: string;    // formatted "12-3456789"
   name: string;
+  sub_name: string;
   city: string;
   state: string;
   ntee_code: string;
-  income_amount: number;
-  asset_amount: number;
-  form_990_count: number;
-  have_pdfs: boolean;
+  subseccd: number;  // 501(c)(X) — 3 = 501(c)(3)
+  have_filings: boolean | null;
+  have_pdfs: boolean | null;
+  score: number;
+  // Populated from detail endpoint when expanded:
+  income_amount?: number;
+  asset_amount?: number;
+  revenue_amount?: number;
+  address?: string;
+  zipcode?: string;
+  ruling_date?: string;
+  tax_period?: string;
+  num_filings?: number;
 }
 
 export interface NonprofitFiling {
   tax_prd_yr: string;
-  formtype: string;
+  tax_prd: string;        // MMYYYY period end
+  formtype: string;       // "990", "990EZ", "990PF"
   pdf_url: string;
+  updated: string;
   totrevenue: number;
   totfuncexpns: number;
   totassetsend: number;
   totliabend: number;
+  totnetassetend: number; // net assets (assets - liabilities)
   compnsatncurrofcr: number;
+  pct_compnsatncurrofcr: number; // exec comp as % of revenue
   othrsalwages: number;
+  payrolltx: number;
+  profndraising: number;
+  totcntrbgfts: number;   // total contributions & gifts
   totprgmrevnue: number;
-  totcontribution: number;
+  invstmntinc: number;
+  netincfndrsng: number;
+  netincsales: number;
+  miscrevtot11e: number;
 }
 
 export interface NonprofitDetail {
-  organization: NonprofitOrg & { num_employees?: number; address?: string; zipcode?: string };
+  organization: NonprofitOrg;
   filings: NonprofitFiling[];
+}
+
+function formtypeLabel(code: unknown): string {
+  switch (String(code)) {
+    case "0": return "990";
+    case "1": return "990EZ";
+    case "2": return "990EZ";
+    case "4": return "990PF";
+    default: return String(code ?? "990");
+  }
 }
 
 export async function searchNonprofits(
@@ -1118,28 +1150,40 @@ export async function searchNonprofits(
   const res = await fetch(`${PROPUBLICA_API}/search.json?${params}`, {
     signal: AbortSignal.timeout(15_000),
   });
+  // ProPublica returns 404 when no matching orgs exist — treat as empty, not an error
+  if (res.status === 404) return { organizations: [], total: 0 };
   if (!res.ok) throw new Error(`ProPublica API error ${res.status}`);
-  const data = (await res.json()) as { total_results?: number; organizations?: NonprofitOrg[] };
-
-  return {
-    organizations: data.organizations ?? [],
-    total: data.total_results ?? 0,
+  const data = (await res.json()) as {
+    total_results?: number;
+    organizations?: Record<string, unknown>[];
   };
+
+  const organizations: NonprofitOrg[] = (data.organizations ?? []).map((o) => ({
+    ein: String(o.ein ?? ""),
+    strein: String(o.strein ?? ""),
+    name: String(o.name ?? ""),
+    sub_name: String(o.sub_name ?? ""),
+    city: String(o.city ?? ""),
+    state: String(o.state ?? ""),
+    ntee_code: String(o.ntee_code ?? ""),
+    subseccd: Number(o.subseccd ?? 0),
+    have_filings: o.have_filings != null ? Boolean(o.have_filings) : null,
+    have_pdfs: o.have_pdfs != null ? Boolean(o.have_pdfs) : null,
+    score: Number(o.score ?? 0),
+  }));
+
+  return { organizations, total: data.total_results ?? 0 };
 }
 
 export async function getNonprofitDetail(ein: string | number): Promise<NonprofitDetail> {
-  // ProPublica returns EINs as numbers in search results; the page passes them
-  // straight back, so accept both shapes. Strip the dash from a "01-0412347"
-  // and zero-pad to 9 digits as ProPublica's canonical form.
+  // Accept numeric EINs from search results; strip dashes; zero-pad to 9 digits.
   const clean = String(ein).replace(/-/g, "").padStart(9, "0");
   const res = await fetch(`${PROPUBLICA_API}/organizations/${clean}.json`, {
     signal: AbortSignal.timeout(15_000),
   });
   if (res.status === 404) {
-    // ProPublica returns 404 for EINs that exist in IRS rolls but have no
-    // detail record. Surface as "no filings" rather than blowing up the UI.
     return {
-      organization: { ein: clean, name: "", city: "", state: "", ntee_code: "", income_amount: 0, asset_amount: 0, form_990_count: 0, have_pdfs: false },
+      organization: { ein: clean, strein: "", name: "", sub_name: "", city: "", state: "", ntee_code: "", subseccd: 0, have_filings: false, have_pdfs: false, score: 0 },
       filings: [],
     };
   }
@@ -1152,32 +1196,49 @@ export async function getNonprofitDetail(ein: string | number): Promise<Nonprofi
   const org = data.organization ?? {};
   const filings: NonprofitFiling[] = (data.filings_with_data ?? []).map((f) => ({
     tax_prd_yr: String(f.tax_prd_yr ?? ""),
-    formtype: String(f.formtype ?? "990"),
+    tax_prd: String(f.tax_prd ?? ""),
+    formtype: formtypeLabel(f.formtype),
     pdf_url: String(f.pdf_url ?? ""),
+    updated: String(f.updated ?? ""),
     totrevenue: num(f.totrevenue),
     totfuncexpns: num(f.totfuncexpns),
     totassetsend: num(f.totassetsend),
     totliabend: num(f.totliabend),
+    totnetassetend: num(f.totnetassetend),
     compnsatncurrofcr: num(f.compnsatncurrofcr),
+    pct_compnsatncurrofcr: num(f.pct_compnsatncurrofcr),
     othrsalwages: num(f.othrsalwages),
+    payrolltx: num(f.payrolltx),
+    profndraising: num(f.profndraising),
+    totcntrbgfts: num(f.totcntrbgfts),
     totprgmrevnue: num(f.totprgmrevnue),
-    totcontribution: num(f.totcontribution),
+    invstmntinc: num(f.invstmntinc),
+    netincfndrsng: num(f.netincfndrsng),
+    netincsales: num(f.netincsales),
+    miscrevtot11e: num(f.miscrevtot11e),
   }));
 
   return {
     organization: {
-      ein: String(org.ein ?? ""),
+      ein: String(org.ein ?? clean),
+      strein: String(org.ein ?? "").padStart(9, "0").replace(/^(\d{2})(\d{7})$/, "$1-$2"),
       name: String(org.name ?? ""),
+      sub_name: String(org.careofname ?? ""),
       city: String(org.city ?? ""),
       state: String(org.state ?? ""),
-      ntee_code: String(org.nteeCode ?? org.ntee_code ?? ""),
-      income_amount: num(org.income_amount ?? org.incomeAmt),
-      asset_amount: num(org.asset_amount ?? org.assetAmount),
-      form_990_count: Number(org.form990TotalAssets ?? 0),
+      ntee_code: String(org.ntee_code ?? ""),
+      subseccd: Number(org.subsection_code ?? 0),
+      have_filings: filings.length > 0,
       have_pdfs: Boolean(org.have_pdfs),
-      num_employees: org.numEmployees != null ? Number(org.numEmployees) : undefined,
+      score: 0,
+      income_amount: num(org.income_amount),
+      asset_amount: num(org.asset_amount),
+      revenue_amount: num(org.revenue_amount),
       address: org.address ? String(org.address) : undefined,
       zipcode: org.zipcode ? String(org.zipcode) : undefined,
+      ruling_date: org.ruling_date ? String(org.ruling_date) : undefined,
+      tax_period: org.tax_period ? String(org.tax_period) : undefined,
+      num_filings: filings.length,
     },
     filings,
   };

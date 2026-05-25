@@ -1,12 +1,13 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { Search, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Search, TrendingUp, AlertCircle, CheckCircle2, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StateSelect } from "@/components/shared/state-select";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { ErrorBanner } from "@/components/shared/error-banner";
+import { EmptyState } from "@/components/shared/empty-state";
 import { DataSourceBadge } from "@/components/shared/data-source-badge";
 import { TrustBadge } from "@/components/shared/trust-badge";
 import { DataFreshnessIndicator } from "@/components/shared/data-freshness-indicator";
@@ -16,6 +17,7 @@ import { mcp } from "@/lib/api";
 import { formatNumber } from "@/lib/utils";
 import type { NursingHomeRow } from "@/lib/cms-direct";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ComparisonButton } from "@/components/shared/comparison-button";
 
 function Stars({ rating }: { rating: unknown }) {
   const n = Number(rating);
@@ -94,7 +96,23 @@ export default function NursingHomePage() {
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} className="mb-4" />}
       {loading && <LoadingSpinner label="Fetching nursing home data…" />}
 
-      {!loading && result && (
+      {!loading && !result && !error && (
+        <EmptyState
+          icon={Building}
+          title="Search nursing homes"
+          description="Select a state to find SNFs ranked by hospice referral opportunity. CMS star ratings, bed counts, and staffing data included."
+        />
+      )}
+
+      {!loading && result && result.rows.length === 0 && (
+        <EmptyState
+          icon={Building}
+          title="No facilities found"
+          description="No nursing homes matched that search. Try a different state or remove the city filter."
+        />
+      )}
+
+      {!loading && result && result.rows.length > 0 && (
         <>
           <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-3">
             <DataSourceBadge source="CMS Nursing Home Compare" verified={true} />
@@ -163,6 +181,7 @@ export default function NursingHomePage() {
                   <TableHead>RN Staffing</TableHead>
                   <TableHead>Quality Measures</TableHead>
                   <TableHead className="text-right">Opportunity Score</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -194,10 +213,26 @@ export default function NursingHomePage() {
                         </TableCell>
                         <TableCell className="text-center"><Stars rating={row["QM Rating"]} /></TableCell>
                         <TableCell className="text-right"><ScoreBadge score={row._snf_opportunity_score} /></TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <ComparisonButton item={{
+                            id: String(row["Provider Name"] ?? i),
+                            name: String(row["Provider Name"] ?? "Unknown"),
+                            type: "nursing_home",
+                            data: {
+                              city: String(row["City/Town"] ?? ""),
+                              state: String(row["State"] ?? ""),
+                              beds: Number(row["Number of Certified Beds"] ?? 0),
+                              overall_rating: Number(row["Overall Rating"] ?? 0),
+                              staffing_rating: Number(row["Staffing Rating"] ?? 0),
+                              qm_rating: Number(row["QM Rating"] ?? 0),
+                              opportunity_score: row._snf_opportunity_score,
+                            }
+                          }} />
+                        </TableCell>
                       </TableRow>
                       {isExpanded && (
                         <TableRow>
-                          <TableCell colSpan={9} className="bg-[hsl(var(--muted)/0.3)] p-6">
+                          <TableCell colSpan={10} className="bg-[hsl(var(--muted)/0.3)] p-6">
                             <div className="space-y-6">
                               <div>
                                 <h4 className="text-sm font-semibold mb-4">Facility Information</h4>
