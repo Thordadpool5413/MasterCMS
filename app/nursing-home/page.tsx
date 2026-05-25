@@ -130,7 +130,7 @@ export default function NursingHomePage() {
               {
                 label: "Total Beds",
                 value: formatNumber(
-                  result.rows.reduce((s, r) => s + (Number(r["Number of Certified Beds"]) || 0), 0)
+                  result.rows.reduce((s, r) => s + (Number(r.number_of_certified_beds) || 0), 0)
                 ),
               },
               {
@@ -152,8 +152,8 @@ export default function NursingHomePage() {
                 value: result.rows.length > 0
                   ? `${(
                       result.rows.reduce((s, r) => {
-                        const beds = Number(r["Number of Certified Beds"]) || 0;
-                        const residents = Number(r["Number of Residents in Certified Beds"]) || 0;
+                        const beds = Number(r.number_of_certified_beds) || 0;
+                        const residents = Number(r.average_number_of_residents_per_day) || 0;
                         return s + (beds > 0 ? residents / beds : 0);
                       }, 0) / result.rows.length * 100
                     ).toFixed(0)}%`
@@ -186,10 +186,10 @@ export default function NursingHomePage() {
               </TableHeader>
               <TableBody>
                 {result.rows.map((row: NursingHomeRow, i) => {
-                  const providerName = String(row["Provider Name"] ?? "");
+                  const providerName = String(row.provider_name ?? "");
                   const isExpanded = expanded === providerName;
-                  const beds = Number(row["Number of Certified Beds"]) || 0;
-                  const residents = Number(row["Number of Residents in Certified Beds"]) || 0;
+                  const beds = Number(row.number_of_certified_beds) || 0;
+                  const residents = Number(row.average_number_of_residents_per_day) || 0;
                   const occupancy = beds > 0 ? (residents / beds * 100) : 0;
                   return (
                     <Fragment key={i}>
@@ -199,32 +199,32 @@ export default function NursingHomePage() {
                       >
                         <TableCell className="font-medium max-w-[180px] truncate">{providerName}</TableCell>
                         <TableCell className="text-sm">
-                          <div>{row["City/Town"]}, {row["State"]}</div>
-                          <div className="text-xs text-[hsl(var(--muted-foreground))]">{row["ZIP Code"]}</div>
+                          <div>{row.citytown}, {row.state}</div>
+                          <div className="text-xs text-[hsl(var(--muted-foreground))]">{row.zip_code}</div>
                         </TableCell>
                         <TableCell className="text-right">{formatNumber(beds)}</TableCell>
                         <TableCell className="text-right">
                           <QualityGauge score={occupancy} max={100} />
                         </TableCell>
-                        <TableCell className="text-center"><Stars rating={row["Overall Rating"]} /></TableCell>
-                        <TableCell className="text-center"><Stars rating={row["Health Inspection Rating"]} /></TableCell>
+                        <TableCell className="text-center"><Stars rating={row.overall_rating} /></TableCell>
+                        <TableCell className="text-center"><Stars rating={row.health_inspection_rating} /></TableCell>
                         <TableCell className="text-center">
                           <QualityGauge score={Number((row as any)["reported_rn_staffing_hours_per_resident_per_day"]) || 0} max={5} />
                         </TableCell>
-                        <TableCell className="text-center"><Stars rating={row["QM Rating"]} /></TableCell>
+                        <TableCell className="text-center"><Stars rating={row.qm_rating} /></TableCell>
                         <TableCell className="text-right"><ScoreBadge score={row._snf_opportunity_score} /></TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <ComparisonButton item={{
-                            id: String(row["Provider Name"] ?? i),
-                            name: String(row["Provider Name"] ?? "Unknown"),
+                            id: String(row.provider_name ?? i),
+                            name: String(row.provider_name ?? "Unknown"),
                             type: "nursing_home",
                             data: {
-                              city: String(row["City/Town"] ?? ""),
-                              state: String(row["State"] ?? ""),
-                              beds: Number(row["Number of Certified Beds"] ?? 0),
-                              overall_rating: Number(row["Overall Rating"] ?? 0),
-                              staffing_rating: Number(row["Staffing Rating"] ?? 0),
-                              qm_rating: Number(row["QM Rating"] ?? 0),
+                              city: String(row.citytown ?? ""),
+                              state: String(row.state ?? ""),
+                              beds: Number(row.number_of_certified_beds ?? 0),
+                              overall_rating: Number(row.overall_rating ?? 0),
+                              staffing_rating: Number(row.staffing_rating ?? 0),
+                              qm_rating: Number(row.qm_rating ?? 0),
                               opportunity_score: row._snf_opportunity_score,
                             }
                           }} />
@@ -239,19 +239,19 @@ export default function NursingHomePage() {
                                 <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Provider ID (CCN)</p>
-                                    <p className="text-sm font-medium">{String((row as any)["cms_certification_number_ccn"] ?? "—")}</p>
+                                    <p className="text-sm font-medium">{String(row.cms_certification_number_ccn ?? "—")}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Phone</p>
-                                    <p className="text-sm font-medium">{String(row["Phone Number"] ?? "—")}</p>
+                                    <p className="text-sm font-medium">{String(row.telephone_number ?? "—")}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Address</p>
-                                    <p className="text-sm font-medium">{String(row["Provider Address"] ?? "—")}</p>
+                                    <p className="text-sm font-medium">{String(row.provider_address ?? "—")}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Ownership Type</p>
-                                    <p className="text-sm font-medium">{String(row["Ownership Type"] ?? "—")}</p>
+                                    <p className="text-sm font-medium">{String(row.ownership_type ?? "—")}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Chain Name</p>

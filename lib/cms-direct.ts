@@ -822,21 +822,21 @@ export async function getHospitalOpportunity(
 // ─── Nursing Home Opportunity ─────────────────────────────────────────────────
 
 export interface NursingHomeRow {
-  "Provider Name"?: string;
-  "Provider Address"?: string;
-  "City/Town"?: string;
-  State?: string;
-  "ZIP Code"?: string;
-  "Phone Number"?: string;
-  "CMS Certification Number (CCN)"?: string;
-  "Ownership Type"?: string;
-  "Number of Certified Beds"?: number;
-  "Number of Residents in Certified Beds"?: number;
-  "Overall Rating"?: number;
-  "Health Inspection Rating"?: number;
-  "QM Rating"?: number;
-  "Staffing Rating"?: number;
-  "RN Staffing Rating"?: number;
+  provider_name?: string;
+  provider_address?: string;
+  citytown?: string;
+  state?: string;
+  zip_code?: string;
+  telephone_number?: string;
+  cms_certification_number_ccn?: string;
+  ownership_type?: string;
+  number_of_certified_beds?: number;
+  average_number_of_residents_per_day?: number;
+  overall_rating?: number;
+  health_inspection_rating?: number;
+  qm_rating?: number;
+  staffing_rating?: number;
+  rn_staffing_rating?: number;
   _snf_opportunity_score: number;
   _beds_used_for_score: number;
   _quality_pressure_component: number;
@@ -847,8 +847,8 @@ export async function getNursingHomeOpportunity(
   state?: string, city?: string, maxRows = 200,
 ): Promise<{ rows: NursingHomeRow[]; total_records: number; interpretation_note: string }> {
   const conditions: { property: string; value: string; operator: string }[] = [];
-  if (state) conditions.push({ property: "State", value: state, operator: "=" });
-  if (city) conditions.push({ property: "City/Town", value: city.toUpperCase(), operator: "=" });
+  if (state) conditions.push({ property: "state", value: state, operator: "=" });
+  if (city) conditions.push({ property: "citytown", value: city.toUpperCase(), operator: "=" });
 
   const res = await fetch(`${PROVIDER_DATA_API}/datastore/query/${NURSING_HOME_ID}/0`, {
     method: "POST",
@@ -862,10 +862,10 @@ export async function getNursingHomeOpportunity(
   const data = json.results ?? [];
 
   const rows: NursingHomeRow[] = data.map((row) => {
-    const beds = num(row["Number of Certified Beds"]);
-    const overall = num(row["Overall Rating"]) || 3;
-    const staffing = num(row["Staffing Rating"]) || 3;
-    const qm = num(row["QM Rating"]) || 3;
+    const beds = num(row.number_of_certified_beds);
+    const overall = num(row.overall_rating) || 3;
+    const staffing = num(row.staffing_rating) || 3;
+    const qm = num(row.qm_rating) || 3;
     const qualityPressure =
       Math.max(0, 5 - overall) + Math.max(0, 5 - staffing) * 0.5 + Math.max(0, 5 - qm) * 0.35;
     const score = beds + qualityPressure * 18;
