@@ -1,7 +1,6 @@
 "use client";
 
 import { useComparison } from "@/lib/comparison-context";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export function ComparisonView() {
@@ -11,7 +10,7 @@ export function ComparisonView() {
     return (
       <div className="rounded-lg border border-[hsl(var(--border))] p-8 text-center">
         <p className="text-sm text-[hsl(var(--muted-foreground))]">
-          No items selected for comparison. Click the "Compare" button on any row to get started.
+          No items selected for comparison. Click the &quot;Compare&quot; button on any row to get started.
         </p>
       </div>
     );

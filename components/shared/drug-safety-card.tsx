@@ -14,8 +14,6 @@ export function DrugSafetyCard({ data }: { data: DrugSafetyData | null }) {
   }
 
   const seriousRate = data.totalReports > 0 ? (data.seriousReports / data.totalReports * 100) : 0;
-  const deathRate = data.totalReports > 0 ? (data.deathReports / data.totalReports * 100) : 0;
-
   return (
     <div className="space-y-3 rounded-lg border border-[hsl(var(--border))] p-4">
       <div className="flex items-start justify-between gap-2">

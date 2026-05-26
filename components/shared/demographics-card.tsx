@@ -108,7 +108,7 @@ export function DemographicsCard({ data }: { data: DemographicData | null }) {
 
         {data.collegeEducationRate !== null && (
           <div className="rounded-md border border-[hsl(var(--border))] p-3">
-            <dt className="text-xs text-[hsl(var(--muted-foreground))]">Bachelor's Degree+</dt>
+            <dt className="text-xs text-[hsl(var(--muted-foreground))]">Bachelor&apos;s Degree+</dt>
             <dd className="mt-0.5 text-sm font-mono font-semibold">{formatPercent(data.collegeEducationRate)}</dd>
           </div>
         )}

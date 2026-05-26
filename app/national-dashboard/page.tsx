@@ -168,7 +168,7 @@ export default function NationalDashboardPage() {
 
   useEffect(() => {
     loadData("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const highPriorityHospitals = hospitals?.rows.filter((h) => h._opportunity_score > 500).length ?? 0;

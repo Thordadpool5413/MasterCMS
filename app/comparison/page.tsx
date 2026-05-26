@@ -50,7 +50,7 @@ export default function ComparisonPage() {
       {items.length === 0 && (
         <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-12 text-center">
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            No items selected. Visit any market intelligence page and click "Compare" on rows to get started.
+            No items selected. Visit any market intelligence page and click &quot;Compare&quot; on rows to get started.
           </p>
         </div>
       )}

@@ -50,19 +50,20 @@ export async function searchDrugSafety(drugName: string): Promise<DrugSafetyData
     const result = data.results[0];
     const events = result.reports || [];
 
+    type FAERSReport = { serious?: number; seriousnessdeath?: number; patient?: { reaction?: { reactionmeddrapt?: string } | { reactionmeddrapt?: string }[] } };
     const reactions = new Map<string, number>();
-    events.forEach((event: any) => {
+    (events as FAERSReport[]).forEach((event) => {
       if (event.patient?.reaction) {
         const rxns = Array.isArray(event.patient.reaction) ? event.patient.reaction : [event.patient.reaction];
-        rxns.forEach((rxn: any) => {
+        rxns.forEach((rxn) => {
           const name = rxn.reactionmeddrapt || "Unknown";
           reactions.set(name, (reactions.get(name) || 0) + 1);
         });
       }
     });
 
-    const seriousCount = events.filter((e: any) => e.serious === 1).length;
-    const deathCount = events.filter((e: any) => e.seriousnessdeath === 1).length;
+    const seriousCount = (events as FAERSReport[]).filter((e) => e.serious === 1).length;
+    const deathCount = (events as FAERSReport[]).filter((e) => e.seriousnessdeath === 1).length;
 
     return {
       drugName,
