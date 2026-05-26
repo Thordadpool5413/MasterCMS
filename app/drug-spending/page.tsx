@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Search, DollarSign, ChevronDown, ChevronUp, AlertTriangle, FileText, Shield, Microscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -390,12 +390,11 @@ export default function DrugSpendingPage() {
               </TableHeader>
               <TableBody>
                 {result.rows.map((row, i) => {
-                  const key = row.brand_name || row.generic_name || String(i);
+                  const key = `${i}-${row.brand_name || row.generic_name || i}`;
                   const isOpen = expanded === key;
                   return (
-                    <>
+                    <Fragment key={key}>
                       <TableRow
-                        key={key}
                         className={cn(
                           "cursor-pointer transition-colors",
                           isOpen
@@ -429,7 +428,7 @@ export default function DrugSpendingPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </TableBody>

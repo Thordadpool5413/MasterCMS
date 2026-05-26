@@ -117,7 +117,7 @@ async function streamAnthropic(
     input_schema: { type: "object" as const, properties: def.properties },
   }));
 
-  let currentMessages = [...messages];
+  const currentMessages = [...messages];
   while (true) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",

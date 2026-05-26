@@ -129,7 +129,7 @@ export async function getDemographicData(
 
 function buildGeographyParam(
   geography: "state" | "county" | "tract",
-  location: string
+  _location: string
 ): string {
   // Simple implementation - can be enhanced based on location format
   if (geography === "state") {

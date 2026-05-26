@@ -3,8 +3,8 @@
 import { Fragment, useState, useEffect } from "react";
 import {
   Search, Building, ChevronDown, ChevronUp, ExternalLink, FileText,
-  TrendingUp, TrendingDown, BarChart3, Globe, Phone, MapPin, Calendar,
-  DollarSign, Activity, AlertCircle,
+  TrendingUp, TrendingDown, BarChart3, Phone, MapPin, Calendar,
+  Activity, AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,9 +37,6 @@ const usd = (v: number | undefined, compact = true) => {
 
 const pctFmt = (num: number, denom: number) =>
   denom ? ((num / denom) * 100).toFixed(1) + "%" : "—";
-
-const fmt = (v: number | undefined) =>
-  v != null ? new Intl.NumberFormat("en-US").format(v) : "—";
 
 // ─── Suggestions ─────────────────────────────────────────────────────────────
 
@@ -656,7 +653,7 @@ export default function CompetitorIntelPage() {
   function toggleExpand(id: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
       return next;
     });
   }

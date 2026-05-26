@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Microscope, CheckCircle2, AlertCircle } from "lucide-react";
+import { ExternalLink, Microscope, CheckCircle2 } from "lucide-react";
 import type { ClinicalTrialsSearchResult } from "@/lib/clinical-trials";
 
 const statusColors: Record<string, { bg: string; text: string; label: string }> = {

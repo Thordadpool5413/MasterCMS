@@ -12,8 +12,6 @@ export function DataFreshnessIndicator({ lastUpdated, staleDays = 30 }: DataFres
   const daysOld = Math.floor((now.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24));
   const isStale = daysOld > staleDays;
 
-  const formatDate = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-
   return (
     <Badge variant={isStale ? "destructive" : "secondary"} className="gap-1">
       {isStale ? <AlertCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}

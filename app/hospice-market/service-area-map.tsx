@@ -12,8 +12,7 @@ const MapContent = dynamic(
     const CircleMarker = m.CircleMarker;
     const Popup = m.Popup;
 
-    return {
-      default: ({ zips }: { zips: string[] }) => {
+    function MapInner({ zips }: { zips: string[] }) {
         const [markers, setMarkers] = useState<Array<{ zip: string; coords: [number, number] }>>([]);
         const [isInitialLoading, setIsInitialLoading] = useState(true);
 
@@ -61,7 +60,7 @@ const MapContent = dynamic(
         return (
           <div className="relative h-96 w-full rounded-lg border border-[hsl(var(--border))] overflow-hidden">
             <MapContainer
-              bounds={bounds as any}
+              bounds={bounds as [number, number][]}
               className="h-full w-full"
             >
               <TileLayer
@@ -91,8 +90,8 @@ const MapContent = dynamic(
             )}
           </div>
         );
-      },
-    };
+    }
+    return { default: MapInner };
   }),
   { ssr: false }
 );

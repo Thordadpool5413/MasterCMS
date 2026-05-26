@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { Search, TrendingUp, AlertCircle, CheckCircle2, Building } from "lucide-react";
+import { Search, AlertCircle, CheckCircle2, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StateSelect } from "@/components/shared/state-select";
@@ -209,7 +209,7 @@ export default function NursingHomePage() {
                         <TableCell className="text-center"><Stars rating={row.overall_rating} /></TableCell>
                         <TableCell className="text-center"><Stars rating={row.health_inspection_rating} /></TableCell>
                         <TableCell className="text-center">
-                          <QualityGauge score={Number((row as any)["reported_rn_staffing_hours_per_resident_per_day"]) || 0} max={5} />
+                          <QualityGauge score={Number((row as Record<string, unknown>)["reported_rn_staffing_hours_per_resident_per_day"]) || 0} max={5} />
                         </TableCell>
                         <TableCell className="text-center"><Stars rating={row.qm_rating} /></TableCell>
                         <TableCell className="text-right"><ScoreBadge score={row._snf_opportunity_score} /></TableCell>
@@ -255,11 +255,11 @@ export default function NursingHomePage() {
                                   </div>
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Chain Name</p>
-                                    <p className="text-sm font-medium">{String((row as any)["chain_name"] ?? "—")}</p>
+                                    <p className="text-sm font-medium">{String((row as Record<string, unknown>)["chain_name"] ?? "—")}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">County</p>
-                                    <p className="text-sm font-medium">{String((row as any)["countyparish"] ?? "—")}</p>
+                                    <p className="text-sm font-medium">{String((row as Record<string, unknown>)["countyparish"] ?? "—")}</p>
                                   </div>
                                 </div>
                               </div>
@@ -269,19 +269,19 @@ export default function NursingHomePage() {
                                 <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">RN Hours/Resident/Day</p>
-                                    <p className="text-sm font-medium">{Number((row as any)["reported_rn_staffing_hours_per_resident_per_day"] || 0).toFixed(2)}</p>
+                                    <p className="text-sm font-medium">{Number((row as Record<string, unknown>)["reported_rn_staffing_hours_per_resident_per_day"] || 0).toFixed(2)}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">LPN Hours/Resident/Day</p>
-                                    <p className="text-sm font-medium">{Number((row as any)["reported_lpn_staffing_hours_per_resident_per_day"] || 0).toFixed(2)}</p>
+                                    <p className="text-sm font-medium">{Number((row as Record<string, unknown>)["reported_lpn_staffing_hours_per_resident_per_day"] || 0).toFixed(2)}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Nurse Aide Hours/Resident/Day</p>
-                                    <p className="text-sm font-medium">{Number((row as any)["reported_nurse_aide_staffing_hours_per_resident_per_day"] || 0).toFixed(2)}</p>
+                                    <p className="text-sm font-medium">{Number((row as Record<string, unknown>)["reported_nurse_aide_staffing_hours_per_resident_per_day"] || 0).toFixed(2)}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Nursing Turnover Rate</p>
-                                    <p className="text-sm font-medium">{Number((row as any)["total_nursing_staff_turnover"] || 0).toFixed(1)}%</p>
+                                    <p className="text-sm font-medium">{Number((row as Record<string, unknown>)["total_nursing_staff_turnover"] || 0).toFixed(1)}%</p>
                                   </div>
                                 </div>
                               </div>
@@ -292,17 +292,17 @@ export default function NursingHomePage() {
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Number of Fines</p>
                                     <div className="flex items-center gap-2 mt-1">
-                                      {Number((row as any)["number_of_fines"] || 0) > 0 ? (
+                                      {Number((row as Record<string, unknown>)["number_of_fines"] || 0) > 0 ? (
                                         <AlertCircle className="h-4 w-4 text-red-500" />
                                       ) : (
                                         <CheckCircle2 className="h-4 w-4 text-green-500" />
                                       )}
-                                      <p className="text-sm font-medium">{String((row as any)["number_of_fines"] ?? "0")}</p>
+                                      <p className="text-sm font-medium">{String((row as Record<string, unknown>)["number_of_fines"] ?? "0")}</p>
                                     </div>
                                   </div>
                                   <div>
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Total Fines ($)</p>
-                                    <p className="text-sm font-medium">${formatNumber(Number((row as any)["total_amount_of_fines_in_dollars"] || 0))}</p>
+                                    <p className="text-sm font-medium">${formatNumber(Number((row as Record<string, unknown>)["total_amount_of_fines_in_dollars"] || 0))}</p>
                                   </div>
                                 </div>
                               </div>
